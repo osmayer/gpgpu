@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+byteorder = "1.5.0"
 clap = { version = "4.5.61", features = ["derive"] }
+five32-instruction-set = "0.1.0"
 object = "0.39.0"
+riscv-decode = "0.2.3"

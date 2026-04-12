@@ -17,7 +17,7 @@ main:
     sw   x9, (gp)
 
     # place all of the numbers in registers and then immediately increment them
-    lw x11, (gp)
+    lw x11, 0(gp)
     addi x11, x11, 1
     
     beq x0, x0, label_1
