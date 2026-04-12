@@ -1,23 +1,24 @@
 use core::{fmt, num};
-use std::thread::Thread;
+use std::{os::unix::thread, thread::Thread};
+use byteorder::{ByteOrder, LittleEndian};
 use riscv_decode;
 use crate::program_loader::{self, Segment, SegmentMetadata};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ThreadState {
-    pc:         i32,
-    registers:  [i32; 32],
+struct ThreadState {
+    pc:         u32,
+    registers:  [u32; 32],
     halted:     bool
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum SectionData {
+enum SectionData {
     Data (Vec<u8>),
     Instruction (Vec<riscv_decode::Instruction>)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct  SectionImage {
+struct  SectionImage {
     metadata: SegmentMetadata,
     data:     SectionData
 }
@@ -29,7 +30,7 @@ pub struct SystemState {
 }
 
 impl ThreadState {
-    pub fn new(starting_pc: i32) -> Self {
+    pub fn new(starting_pc: u32) -> Self {
         ThreadState { 
             pc: starting_pc, 
             registers: [0; 32],
@@ -37,15 +38,11 @@ impl ThreadState {
         }
     }
 
-    pub fn get_pc(&self) -> i32 {
+    pub fn get_pc(&self) -> u32 {
         self.pc
     }
 
-    pub fn get_instr_idx(&self) -> i32 {
-        self.pc / 4
-    }
-
-    pub fn set_pc(&mut self, new_pc: i32) {
+    pub fn set_pc(&mut self, new_pc: u32) {
         self.pc = new_pc;
     }
 
@@ -53,14 +50,14 @@ impl ThreadState {
         self.pc += 4; 
     }
 
-    pub fn read_register(&self, idx: i32) -> i32 {
+    pub fn read_register(&self, idx: u32) -> u32 {
         if idx < 0  || idx > 31 {
             assert!(false, "Tried to read invalid index");
         }
         self.registers[idx as usize]
     }
 
-    pub fn write_register(&mut self, idx: i32, new_val: i32) {
+    pub fn write_register(&mut self, idx: i32, new_val: u32) {
         if idx < 0  || idx > 31 {
             assert!(false, "Tried to read invalid index");
         }
@@ -140,5 +137,59 @@ impl SystemState {
         }
 
         new_state
+    }
+
+    fn get_effective_addr (&self, req_addr: u32, req_size: usize) -> (Option<usize>, Option<usize>) {
+        let mut seg_id: usize = 0; 
+        for segment in &self.memory_state {
+            let segment_start = segment.metadata.base_addr as usize;
+            let segment_end   = (segment.metadata.base_addr + segment.metadata.size) as usize;
+            let req_start_addr= req_addr as usize;
+            let req_end_addr  = (req_start_addr + 4) as usize;
+
+            if req_start_addr >= segment_start && req_end_addr < segment_end {
+                let effective_start = req_start_addr - segment_start;
+                let effective_end   = effective_start + req_size; 
+            
+                if effective_end as u32 > segment.metadata.allocated_size {
+                    return (None, None);
+                }
+
+                return (Some(seg_id), Some(effective_start));
+            }
+            seg_id+=1;
+        }
+        (None, None)
+    }
+
+    pub fn fetch_instr (&self, thread_idx: u32) -> (u32, Option<riscv_decode::Instruction>) {
+        let curr_pc                            = self.thread_states[thread_idx as usize].get_pc();
+        let mem_loc = self.get_effective_addr(curr_pc, 4);
+        let seg_idx                  = mem_loc.0;
+        let byte_idx                 = mem_loc.1;
+
+        match (seg_idx, byte_idx) {
+            (Some(seg_idx), Some(byte_idx)) => {
+                match &self.memory_state[seg_idx].data {
+                    SectionData::Instruction(i) => {
+                        (curr_pc, Some(i[byte_idx].clone()))
+                    },
+                    SectionData::Data(_) => {
+                        (curr_pc, None)
+                    }
+                }
+            },
+            _ => {
+                (curr_pc, None)
+            }
+        }
+    }
+
+    pub fn incr_pc(&mut self, thread_idx: u32)  {
+        self.thread_states[thread_idx as usize].advance_pc();
+    }
+
+    pub fn update_pc(&mut self, thread_idx: u32, new_pc: u32) {
+        self.thread_states[thread_idx as usize].set_pc(new_pc);
     }
 }

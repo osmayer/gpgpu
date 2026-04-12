@@ -12,11 +12,12 @@ enum PrivilegeValue {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SegmentMetadata {
-    pub base_addr:    u32,
-    pub max_size:     u32,
-    pub name:         &'static str,
-    pub privilege:    PrivilegeValue,
-    pub executable:   bool
+    pub base_addr:      u32,
+    pub size:           u32,
+    pub name:           &'static str,
+    pub privilege:      PrivilegeValue,
+    pub allocated_size: u32,
+    pub executable:     bool
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -37,37 +38,42 @@ const KERNEL_DATA_START: u32 = 0x90000000;
 
 const IMAGE_STRUCTURE: [ SegmentMetadata; 5 ] = [
     SegmentMetadata {
-        base_addr:  USER_TEXT_START,
-        max_size:   USER_DATA_START - USER_TEXT_START,
-        name:       "text",
-        privilege:  PrivilegeValue::USER,
-        executable: true
+        base_addr:      USER_TEXT_START,
+        size:           USER_DATA_START - USER_TEXT_START,
+        allocated_size: 0,
+        name:           "text",
+        privilege:      PrivilegeValue::USER,
+        executable:     true
     },
     SegmentMetadata {
         base_addr:  USER_DATA_START,
-        max_size:   STACK_START - USER_DATA_START,
+        size:       STACK_START - USER_DATA_START,
         name:       "data",
+        allocated_size: 0,
         privilege:  PrivilegeValue::USER,
         executable: false
     },
     SegmentMetadata {
         base_addr:  STACK_START,
-        max_size:   STACK_SIZE,
+        size:       STACK_SIZE,
         name:       "stack",
+        allocated_size: 0,
         privilege:  PrivilegeValue::USER,
         executable: false
     },
     SegmentMetadata {
         base_addr:  KERNEL_TEXT_START,
-        max_size:   KERNEL_DATA_START - KERNEL_TEXT_START,
+        size:       KERNEL_DATA_START - KERNEL_TEXT_START,
         name:       "kdata",
+        allocated_size: 0,
         privilege:  PrivilegeValue::KERNEL,
         executable: true
     },
     SegmentMetadata {
         base_addr:  KERNEL_DATA_START,
-        max_size:   std::u32::MAX - KERNEL_DATA_START,
+        size:       std::u32::MAX - KERNEL_DATA_START,
         name:       "kdata",
+        allocated_size: 0,
         privilege:  PrivilegeValue::KERNEL,
         executable: false
     }
@@ -93,17 +99,21 @@ pub fn file_to_image (obj_file: &object::File) -> Vec<Segment> {
                                             .expect("Illegal Data")
                                             .into();
             
-            results.push(Segment::new(section_data, segment));
-
+            let mut result_metadata = segment;
+            result_metadata.allocated_size = section_data.len() as u32;
+            result_metadata.size           = section_obj.size() as u32;
+            results.push(Segment::new(section_data, result_metadata));
+        } else {
+            results.push(Segment::new(vec![], segment));
         }
-    }
+    } 
     results
 }
 
 pub fn get_u32 (memory_map: &Vec<Segment>, req_addr: u32) -> Option<u32> {
     for segment in memory_map {
         let segment_start = segment.metadata.base_addr as usize;
-        let segment_end   = (segment.metadata.base_addr + segment.metadata.max_size) as usize;
+        let segment_end   = (segment.metadata.base_addr + segment.metadata.size) as usize;
         let req_start_addr= req_addr as usize;
         let req_end_addr  = (req_start_addr + 4) as usize;
 
@@ -126,7 +136,7 @@ pub fn get_u32 (memory_map: &Vec<Segment>, req_addr: u32) -> Option<u32> {
 pub fn set_u32 (memory_map: &mut Vec<Segment>, req_addr: u32, new_value: u32) -> Option<u32> {
     for segment in memory_map {
         let segment_start = segment.metadata.base_addr as usize;
-        let segment_end   = (segment.metadata.base_addr + segment.metadata.max_size) as usize;
+        let segment_end   = (segment.metadata.base_addr + segment.metadata.size) as usize;
         let req_start_addr= req_addr  as usize;
         let req_end_addr  = (req_start_addr + 4) as usize;
 

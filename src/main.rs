@@ -25,7 +25,7 @@ fn main() -> io::Result<()> {
     let file = File::open(user_args.code_path)?;
     let reader = BufReader::new(file);
 
-    let bin_data = std::fs::read("memDist1_nocache.elf")?;
+    let bin_data = std::fs::read("kosarajus.elf")?;
     let obj_file = object::File::parse(&*bin_data).expect("Skill issue");
 
     
