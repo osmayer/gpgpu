@@ -1,0 +1,155 @@
+===== PROGRAM STDOUT =====
+Hello, world!
+
+===== PROGRAM STDERR =====
+warning: unused import: `num`
+ --> src/program_state.rs:1:17
+  |
+1 | use core::{fmt, num, panic};
+  |                 ^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::thread::Thread`
+ --> src/instr_execute.rs:2:5
+  |
+2 | use std::thread::Thread;
+  |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `riscv_decode::types::ShiftType`
+ --> src/instr_execute.rs:4:5
+  |
+4 | use riscv_decode::types::ShiftType;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `File` and `self`
+ --> src/program_loader.rs:1:15
+  |
+1 | use std::fs::{self, File};
+  |               ^^^^  ^^^^
+
+warning: unused import: `clap::Parser`
+ --> src/program_loader.rs:2:5
+  |
+2 | use clap::Parser;
+  |     ^^^^^^^^^^^^
+
+warning: unused imports: `File` and `self`
+ --> src/main.rs:5:15
+  |
+5 | use std::fs::{self, File};
+  |               ^^^^  ^^^^
+
+warning: unused imports: `BufRead` and `BufReader`
+ --> src/main.rs:6:21
+  |
+6 | use std::io::{self, BufRead, BufReader};
+  |                     ^^^^^^^  ^^^^^^^^^
+
+warning: unused imports: `Endian`, `LittleEndian`, `ObjectSection`, and `Object`
+ --> src/main.rs:9:20
+  |
+9 | use object::{self, Endian, LittleEndian, Object, ObjectSection};
+  |                    ^^^^^^  ^^^^^^^^^^^^  ^^^^^^  ^^^^^^^^^^^^^
+
+warning: unused variable: `thread_idx`
+   --> src/program_state.rs:221:28
+    |
+221 |     pub fn load_32 (&self, thread_idx: u32, req_addr: u32) -> u32 {
+    |                            ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_thread_idx`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `thread_idx`
+   --> src/program_state.rs:241:28
+    |
+241 |     pub fn load_16 (&self, thread_idx: u32, req_addr: u32) -> u16 {
+    |                            ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_thread_idx`
+
+warning: unused variable: `thread_idx`
+   --> src/program_state.rs:260:27
+    |
+260 |     pub fn load_8 (&self, thread_idx: u32, req_addr: u32) -> u8 {
+    |                           ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_thread_idx`
+
+warning: unused variable: `thread_idx`
+   --> src/program_state.rs:279:33
+    |
+279 |     pub fn store_32 (&mut self, thread_idx: u32, req_addr: u32, new_val: u32)  {
+    |                                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_thread_idx`
+
+warning: unused variable: `thread_idx`
+   --> src/program_state.rs:315:34
+    |
+315 |      pub fn store_16 (&mut self, thread_idx: u32, req_addr: u32, new_val: u16)  {
+    |                                  ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_thread_idx`
+
+warning: unused variable: `thread_idx`
+   --> src/program_state.rs:350:33
+    |
+350 |      pub fn store_8 (&mut self, thread_idx: u32, req_addr: u32, new_val: u8)  {
+    |                                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_thread_idx`
+
+warning: unused variable: `curr_pc`
+  --> src/instr_execute.rs:48:85
+   |
+48 | fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
+   |                                                                                     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_curr_pc`
+
+warning: unused variable: `curr_pc`
+   --> src/instr_execute.rs:249:85
+    |
+249 | fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
+    |                                                                                     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_curr_pc`
+
+warning: unused variable: `curr_pc`
+   --> src/instr_execute.rs:297:93
+    |
+297 | fn execute_shift_instr (op: Opcode, instr: riscv_decode::types::ShiftType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
+    |                                                                                             ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_curr_pc`
+
+warning: type `PrivilegeValue` is more private than the item `SegmentMetadata::privilege`
+  --> src/program_loader.rs:18:5
+   |
+18 |     pub privilege:      PrivilegeValue,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `SegmentMetadata::privilege` is reachable at visibility `pub`
+   |
+note: but type `PrivilegeValue` is only usable at visibility `pub(self)`
+  --> src/program_loader.rs:8:1
+   |
+ 8 | enum PrivilegeValue {
+   | ^^^^^^^^^^^^^^^^^^^
+   = note: `#[warn(private_interfaces)]` on by default
+
+warning: variant `Lwu` is never constructed
+  --> src/instr_execute.rs:23:5
+   |
+ 7 | enum Opcode {
+   |      ------ variant in this enum
+...
+23 |     Lwu,
+   |     ^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: comparison is useless due to type limits
+  --> src/program_state.rs:59:12
+   |
+59 |         if idx < 0  || idx > 31 {
+   |            ^^^^^^^
+   |
+   = note: `#[warn(unused_comparisons)]` on by default
+
+warning: comparison is useless due to type limits
+  --> src/program_state.rs:66:12
+   |
+66 |         if idx < 0  || idx > 31 {
+   |            ^^^^^^^
+
+
+thread 'main' (4276985) panicked at src/program_state.rs:121:81:
+Found illegal instruction
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+===== AUTOGRADER RESULT =====
+Simulator exited with code 101
