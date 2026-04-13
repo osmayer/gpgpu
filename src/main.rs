@@ -21,6 +21,22 @@ struct Parameters {
     num_blocks: u32
 }
 
+fn thread_execute_instr (thread_idx: u32, block_idx: u32, system_state: &mut program_state::SystemState ) {
+    if system_state.is_thread_halted(thread_idx, block_idx) {
+        return;
+    }
+    let curr_instr = system_state.fetch_instr(thread_idx, block_idx);
+    match curr_instr.1 {
+        Some(instr) => {
+            println!("pc: {:x} instr: {:?}", curr_instr.0, instr);
+            execute_instr(instr, curr_instr.0, thread_idx, block_idx, system_state);
+        },
+        _ => {     
+            panic!("Illegal PC Value!");
+        }
+    }
+}
+
 
 fn main() -> io::Result<()> {
 	println!("Hello, world!");
@@ -34,32 +50,29 @@ fn main() -> io::Result<()> {
     
     let image = program_loader::file_to_image(&obj_file);
     let mut system_state = program_state::SystemState::new(&image, user_args.threads_per_block, user_args.num_blocks);
+
+    let num_blocks = system_state.get_num_blocks();
+    let threads_per_block = system_state.get_threads_per_block();
     
     loop {
         // scheduler does things, decides who's going
 
         // for loop to run threads that have been decided
+        for block in 0..num_blocks {
+            for thread in 0..threads_per_block {
+                thread_execute_instr(thread, block, &mut system_state);
+            }
+        }
 
         // update memory queue
 
         // check if entire program is done
-        let mut halted = false;
-        for i in 0..system_state.num_blocks {
-            for j in 0..system_state.threads_per_block {
-                if system_state.is_thread_halted(i, j) {
-                    halted = true;
+        let mut halted = true;
+        for block in 0..num_blocks {
+            for thread in 0..threads_per_block {
+                if !system_state.is_thread_halted(thread, block) {
+                    halted = false;
                 } 
-            }
-        }
-        
-        let curr_instr = system_state.fetch_instr(0, 0);
-        match curr_instr.1 {
-            Some(instr) => {
-                println!("pc: {:x} instr: {:?}", curr_instr.0, instr);
-                execute_instr(instr, curr_instr.0, 0,0, &mut system_state);
-            },
-            _ => {     
-                panic!("Illegal PC Value!");
             }
         }
         
@@ -71,8 +84,7 @@ fn main() -> io::Result<()> {
         // println!("{}", system_state.thread_states[0]);
     }
 
-    println!("{}", system_state.thread_states[0][0]);
+    println!("{}", system_state);
 
-    
     Ok(())
 }

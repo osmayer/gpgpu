@@ -362,6 +362,7 @@ fn execute_custom_instr (instr: Instr, thread_idx: u32, block_idx:u32, curr_pc: 
             panic!("you idiot");
         }
     }
+    state.incr_pc(thread_idx, block_idx);
 }
 
 pub fn execute_instr (target_instr: Instr, curr_pc: u32, thread_idx: u32, block_idx:u32, state: &mut program_state::SystemState) {

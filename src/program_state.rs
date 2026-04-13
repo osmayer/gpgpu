@@ -252,6 +252,8 @@ impl SystemState {
     }
 
     pub fn is_thread_halted(&self, thread_idx: u32, block_idx: u32) -> bool {
+        println!("{:?}, {}", thread_idx, block_idx);
+
         self.thread_states[block_idx as usize][thread_idx as usize].is_halted()
     }
 
@@ -261,6 +263,14 @@ impl SystemState {
 
     pub fn write_thread_register(&mut self, thread_idx: u32, block_idx: u32, register_idx: u32, new_val: u32) {
         self.thread_states[block_idx as usize][thread_idx as usize].write_register(register_idx, new_val);
+    }
+
+    pub fn get_num_blocks(&self) -> u32 {
+        self.num_blocks
+    }
+
+    pub fn get_threads_per_block (&self) -> u32 {
+        self.threads_per_block
     }
 
     pub fn load_32 (&self, thread_idx: u32, block_idx: u32, req_addr: u32) -> u32 {
@@ -425,5 +435,20 @@ impl SystemState {
         if did_resize {
             self.memory_state[seg_id as usize].metadata.allocated_size = new_len as u32;
         }
+    }
+
+
+}
+
+impl fmt::Display for SystemState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for block in 0..self.get_num_blocks() {
+            for thread in 0..self.get_threads_per_block() {
+                writeln!(f, "BID: {} TID: {}", block, thread)?;
+                writeln!(f, "{}", self.thread_states[block as usize][thread as usize]);
+            }
+        }
+        // Use the write! macro to define the string representation
+        writeln!(f, "done!")
     }
 }
