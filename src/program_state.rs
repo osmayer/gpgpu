@@ -257,7 +257,7 @@ impl SystemState {
     }
 
     pub fn load_8 (&self, thread_idx: u32, req_addr: u32) -> u8 {
-        let (segment, ea) = self.get_effective_addr(req_addr, 4); 
+        let (segment, ea) = self.get_effective_addr(req_addr, 1); 
         match (segment, ea) {
             (Some(s), Some(a)) => {
                 match &self.memory_state[s as usize].data {

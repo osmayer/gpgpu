@@ -150,23 +150,24 @@ fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread_idx:
 fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
     let rs1 = instr.rs1();
     let rs2 = instr.rs2();
-    let imm = instr.imm();
+    let imm = ((instr.imm() as i32) << 20) >> 20;
 
-    let rs1_data = state.read_thread_register(thread_idx, rs1);
-    let rs2_data = state.read_thread_register(thread_idx, rs2); 
+    let rs1_data = state.read_thread_register(thread_idx, rs1) as i32;
+    let rs2_data = state.read_thread_register(thread_idx, rs2) as i32; 
 
     match op {
         Opcode::Sw => {
             let store_addr = rs1_data + imm;
-            state.store_32(thread_idx, store_addr, rs2_data);
+            state.store_32(thread_idx, store_addr as u32, rs2_data as u32);
         },
         Opcode::Sh => {
             let store_addr = rs1_data + imm;
-            state.store_16(thread_idx, store_addr, rs2_data as u16);
+            println!("Store Base: {} Imm: {} Sum: {}", rs1_data, imm, store_addr);
+            state.store_16(thread_idx, store_addr as u32, rs2_data as u16);
         },
         Opcode::Sb => {
             let store_addr = rs1_data + imm;
-            state.store_8(thread_idx, store_addr, rs2_data as u8);
+            state.store_8(thread_idx, store_addr as u32, rs2_data as u8);
         },
         _ => {
             panic!("Illegal I-Type Instruction!");
@@ -178,11 +179,16 @@ fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u
 fn execute_u_instr (op: Opcode, instr: riscv_decode::types::UType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
     let rd = instr.rd();
     let imm = instr.imm();
+    println!("{}", imm as i32);
 
     match op {
         Opcode::Lui => {
             state.write_thread_register(thread_idx, rd, imm);
         },
+        Opcode::Auipc => {
+            let final_imm = imm.overflowing_add(curr_pc).0;
+            state.write_thread_register(thread_idx, rd, final_imm); 
+        }
         _ => {
             panic!("Illegal U Type Instruction!");
         }
@@ -227,6 +233,9 @@ pub fn execute_instr (target_instr: riscv_decode::Instruction, curr_pc: u32, thr
         }
         riscv_decode::Instruction::Sb(sb) => {
             execute_s_instr(Opcode::Sb, sb, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Auipc(auipc) => {
+            execute_u_instr(Opcode::Auipc, auipc, thread_idx, curr_pc, state);
         }
         _ => {
             panic!("Unimplemented Instruction {:?}!", target_instr);

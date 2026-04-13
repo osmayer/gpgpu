@@ -45,6 +45,9 @@ fn main() -> io::Result<()> {
                 panic!("Illegal PC Value!");
             }
         }
+
+        // println!("Per Cycle Register Trace:");
+        // println!("{}", system_state.thread_states[0]);
     }
 
     println!("{}", system_state.thread_states[0]);
