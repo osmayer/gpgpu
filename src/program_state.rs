@@ -1,8 +1,7 @@
 use core::{fmt, num, panic};
-use std::os::unix::thread;
 use byteorder::{ByteOrder, LittleEndian};
 use riscv_decode;
-use crate::program_loader::{self, Segment, SegmentMetadata};
+use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}};
 
 const INITIAL_SP: u32 = 0x7ff00000;
 const INITIAL_GP: u32 = 0x10000000; 
@@ -15,9 +14,20 @@ pub struct ThreadState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Instr {
+    Custom {
+        op: Opcode,
+        rd: u32, 
+        rs1: u32, 
+        rs2: u32
+    },
+    Standard (riscv_decode::Instruction)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum SectionData {
     Data (Vec<u8>),
-    Instruction (Vec<riscv_decode::Instruction>)
+    Instruction (Vec<Instr>)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -124,10 +134,22 @@ impl SystemState {
                             let instr = riscv_decode::decode(u).ok();
                             match instr {
                                 Some(i) => {
-                                    curr_instructions.push(i);
+                                    curr_instructions.push(Instr::Standard(i));
                                 }
                                 _ => {
-                                    println!("Illegal instr found!");
+                                    if u & 0x3F == 0xF {
+                                        let funct3 = (u >> 12) & 0x3;
+                                        match funct3 {
+                                            0 => {
+                                                
+                                            }
+                                            _ => {
+                                                println!("Illegal new instr found!");
+                                            }
+                                        }
+                                    } else {
+                                        println!("Illegal instr found!");
+                                    }
                                 }
                             }
                             
@@ -182,7 +204,7 @@ impl SystemState {
         (None, None)
     }
 
-    pub fn fetch_instr (&self, thread_idx: u32) -> (u32, Option<riscv_decode::Instruction>) {
+    pub fn fetch_instr (&self, thread_idx: u32) -> (u32, Option<Instr>) {
         let curr_pc                            = self.thread_states[thread_idx as usize].get_pc();
         let mem_loc = self.get_effective_addr(curr_pc, 1, false);
         let seg_idx                  = mem_loc.0;
