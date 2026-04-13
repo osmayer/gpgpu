@@ -4,7 +4,7 @@ use std::thread::Thread;
 use riscv_decode::types::ShiftType;
 
 use crate::program_state::{self, Instr};
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Opcode {
     Lui,
     Auipc,
@@ -491,7 +491,7 @@ pub fn execute_instr (target_instr: Instr, curr_pc: u32, thread_idx: u32,  state
         Instr::Custom{op, rd, rs1, rs2} => {
             match op {
                 Opcode::Tid => {
-
+                    execute_custom_instr(target_instr.clone(), thread_idx, curr_pc, state);
                 }
                 _ => {
                     panic!("unimplemented custom instruction")

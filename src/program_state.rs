@@ -139,9 +139,12 @@ impl SystemState {
                                 _ => {
                                     if u & 0x3F == 0xF {
                                         let funct3 = (u >> 12) & 0x3;
+                                        let rs1 = (u >> 15) & 0x1F;
+                                        let rs2 = (u >> 20) & 0x1F;
+                                        let rd = (u >> 7) & 0x1F;
                                         match funct3 {
                                             0 => {
-                                                
+                                                curr_instructions.push(Instr::Custom{op:Opcode::Tid, rd:rd, rs1:rs1, rs2:rs2});
                                             }
                                             _ => {
                                                 println!("Illegal new instr found!");
