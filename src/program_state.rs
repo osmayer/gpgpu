@@ -146,7 +146,7 @@ impl SystemState {
                                 }
                                 _ => {
                                     if u & 0x3F == 0xF {
-                                        let funct3 = (u >> 12) & 0x3;
+                                        let funct3 = (u >> 12) & 0x7;
                                         let rs1 = (u >> 15) & 0x1F;
                                         let rs2 = (u >> 20) & 0x1F;
                                         let rd = (u >> 7) & 0x1F;
@@ -154,8 +154,23 @@ impl SystemState {
                                             0 => {
                                                 curr_instructions.push(Instr::Custom{op:Opcode::Tid, rd:rd, rs1:rs1, rs2:rs2});
                                             }
+                                            1 => {
+                                                curr_instructions.push(Instr::Custom{op:Opcode::Bid, rd:rd, rs1:rs1, rs2:rs2});
+                                            }
+                                            2 => {
+                                                curr_instructions.push(Instr::Custom{op:Opcode::Bdim, rd:rd, rs1:rs1, rs2:rs2});
+                                            }
+                                            3 => {
+                                                curr_instructions.push(Instr::Custom{op:Opcode::Gdim, rd:rd, rs1:rs1, rs2:rs2});
+                                            }
+                                            4 => {
+                                                curr_instructions.push(Instr::Custom{op:Opcode::LwS, rd:rd, rs1:rs1, rs2:rs2});
+                                            }
+                                            5 => {
+                                                curr_instructions.push(Instr::Custom{op:Opcode::SwS, rd:rd, rs1:rs1, rs2:rs2});
+                                            }
                                             _ => {
-                                                println!("Illegal new instr found!");
+                                                panic!("Illegal new instr found!");
                                             }
                                         }
                                     } else {
@@ -252,8 +267,6 @@ impl SystemState {
     }
 
     pub fn is_thread_halted(&self, thread_idx: u32, block_idx: u32) -> bool {
-        println!("{:?}, {}", thread_idx, block_idx);
-
         self.thread_states[block_idx as usize][thread_idx as usize].is_halted()
     }
 

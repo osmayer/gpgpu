@@ -45,7 +45,11 @@ pub enum Opcode {
     Or, 
     And,
     Tid,
-    Bid
+    Bid,
+    Gdim,
+    Bdim,
+    LwS,
+    SwS
 }
 
 fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread_idx: u32, block_idx:u32, curr_pc: u32, state: &mut program_state::SystemState) {
@@ -351,7 +355,13 @@ fn execute_custom_instr (instr: Instr, thread_idx: u32, block_idx:u32, curr_pc: 
                     state.write_thread_register(thread_idx, block_idx, rd, thread_idx);
                 }
                 Opcode::Bid => {
-
+                    state.write_thread_register(thread_idx, block_idx, rd, block_idx);
+                }
+                Opcode::Bdim => {
+                    state.write_thread_register(thread_idx, block_idx, rd, state.get_threads_per_block());
+                }
+                Opcode::Gdim => {
+                    state.write_thread_register(thread_idx, block_idx, rd, state.get_num_blocks());
                 }
                 _ => {
                     panic!("unimplemented custom instr");
@@ -492,6 +502,15 @@ pub fn execute_instr (target_instr: Instr, curr_pc: u32, thread_idx: u32, block_
         Instr::Custom{op, rd, rs1, rs2} => {
             match op {
                 Opcode::Tid => {
+                    execute_custom_instr(target_instr.clone(), thread_idx, block_idx, curr_pc, state);
+                }
+                Opcode::Bid => {
+                    execute_custom_instr(target_instr.clone(), thread_idx, block_idx, curr_pc, state);
+                }
+                Opcode::Gdim => {
+                    execute_custom_instr(target_instr.clone(), thread_idx, block_idx, curr_pc, state);
+                }
+                Opcode::Bdim => {
                     execute_custom_instr(target_instr.clone(), thread_idx, block_idx, curr_pc, state);
                 }
                 _ => {
