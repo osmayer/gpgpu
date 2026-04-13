@@ -147,6 +147,63 @@ fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread_idx:
     state.incr_pc(thread_idx);
 }
 
+fn execute_sb_instr (op: Opcode, instr: riscv_decode::types::BType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
+    let rs1 = instr.rs1();
+    let imm = ((instr.imm() as i32) << 20) >> 20;
+    let rs2 = instr.rs2();
+    let rs1_data = state.read_thread_register(thread_idx, rs1) as i32; 
+    let rs2_data = state.read_thread_register(thread_idx, rs2) as i32; 
+    let target_addr = (imm.overflowing_add(curr_pc as i32)).0 as u32;
+
+    match op {
+        Opcode::Beq => {
+            if rs1_data == rs2_data {
+                state.update_pc(thread_idx, target_addr);
+            } else {
+                state.incr_pc(thread_idx);
+            }
+        },
+        Opcode::Bne => {
+            if rs1_data != rs2_data {
+                state.update_pc(thread_idx, target_addr);
+            } else {
+                state.incr_pc(thread_idx);
+            }
+        },
+        Opcode::Blt => {
+            if rs1_data < rs2_data {
+                state.update_pc(thread_idx, target_addr);
+            } else {
+                state.incr_pc(thread_idx);
+            }
+        },
+        Opcode::Bltu => {
+            if (rs1_data as u32) < (rs2_data as u32) {
+                state.update_pc(thread_idx, target_addr);
+            } else {
+                state.incr_pc(thread_idx);
+            }
+        },
+        Opcode::Bge => {
+            if rs1_data > rs2_data {
+                state.update_pc(thread_idx, target_addr);
+            } else {
+                state.incr_pc(thread_idx);
+            }
+        },
+        Opcode::Bgeu => {
+            if (rs1_data as u32) > (rs2_data as u32) {
+                state.update_pc(thread_idx, target_addr);
+            } else {
+                state.incr_pc(thread_idx);
+            }
+        },
+        _ => {
+            panic!("Illegal SB_type instruction!")
+        }
+    }
+}
+
 fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
     let rs1 = instr.rs1();
     let rs2 = instr.rs2();
@@ -162,7 +219,6 @@ fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u
         },
         Opcode::Sh => {
             let store_addr = rs1_data + imm;
-            println!("Store Base: {} Imm: {} Sum: {}", rs1_data, imm, store_addr);
             state.store_16(thread_idx, store_addr as u32, rs2_data as u16);
         },
         Opcode::Sb => {
@@ -227,16 +283,34 @@ pub fn execute_instr (target_instr: riscv_decode::Instruction, curr_pc: u32, thr
         },
         riscv_decode::Instruction::Lui(lui) => {
             execute_u_instr(Opcode::Lui, lui, thread_idx, curr_pc, state);
-        }
+        },
         riscv_decode::Instruction::Sh(sh) => {
             execute_s_instr(Opcode::Sh, sh, thread_idx, curr_pc, state);
-        }
+        },
         riscv_decode::Instruction::Sb(sb) => {
             execute_s_instr(Opcode::Sb, sb, thread_idx, curr_pc, state);
-        }
+        },
         riscv_decode::Instruction::Auipc(auipc) => {
             execute_u_instr(Opcode::Auipc, auipc, thread_idx, curr_pc, state);
-        }
+        },
+        riscv_decode::Instruction::Bne(bne) => {
+            execute_sb_instr(Opcode::Bne, bne, thread_idx, curr_pc, state);
+        },
+        riscv_decode::Instruction::Beq(beq) => {
+            execute_sb_instr(Opcode::Beq, beq, thread_idx, curr_pc, state);
+        },
+        riscv_decode::Instruction::Blt(blt) => {
+            execute_sb_instr(Opcode::Blt, blt, thread_idx, curr_pc, state);
+        },
+        riscv_decode::Instruction::Bltu(bltu) => {
+            execute_sb_instr(Opcode::Bltu, bltu, thread_idx, curr_pc, state);
+        },
+        riscv_decode::Instruction::Bge(bge) => {
+            execute_sb_instr(Opcode::Bge, bge, thread_idx, curr_pc, state);
+        },
+        riscv_decode::Instruction::Bgeu(bgeu) => {
+            execute_sb_instr(Opcode::Bgeu, bgeu, thread_idx, curr_pc, state);
+        },
         _ => {
             panic!("Unimplemented Instruction {:?}!", target_instr);
         }

@@ -1,7 +1,9 @@
 # Exclude all files, then include in only the required ones
 *
 
-!/src/*
+!/src
 !/Cargo.toml
 !/.gitignore
 !/single_tests
+!README.md
+!/medium_tests
