@@ -1,7 +1,7 @@
 use core::panic;
 use std::thread::Thread;
 
-use object::elf::R_NIOS2_TLS_DTPMOD;
+use object::{elf::R_NIOS2_TLS_DTPMOD, macho::S_ZEROFILL};
 use riscv_decode::types::ShiftType;
 
 use crate::program_state;
@@ -55,16 +55,17 @@ fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread_idx: u
 
     match op {
         Opcode::Add => {
-            result = rs1_data + rs2_data;
+            result = rs1_data.overflowing_add(rs2_data).0;
         },
         Opcode::Sub => {
-            result = rs1_data - rs2_data;
+            result = rs1_data.overflowing_sub(rs2_data).0;
         },
         Opcode::Sll => {
             result = rs1_data << (rs2_data & 0x1F);
         },
         Opcode::Sltu => {
-            if rs1_data < rs2_data {
+            println!("{} {} {} {} {}", rs1, rs2, rs1_data, rs2_data, instr.rd());
+            if (rs1_data as u32) < (rs2_data as u32) {
                 result = 1;
             } else {
                 result = 0;
@@ -112,12 +113,12 @@ fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread_idx:
             state.write_thread_register(thread_idx, rd, load_data);
         }
         Opcode::Addi => {
-            let result = rs1_data + imm;
+            let result = rs1_data.overflowing_add(imm).0;
             state.write_thread_register(thread_idx, rd, result as u32);
         }
         Opcode::Slti => {
             let result;
-            if ((rs1_data as i32) < (imm as i32)) {
+            if (rs1_data as i32) < (imm as i32) {
                 result = 1;
             }
             else {
@@ -127,7 +128,7 @@ fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread_idx:
         }
         Opcode::Sltiu => {
             let result;
-            if (rs1_data < imm) {
+            if rs1_data < imm {
                 result = 1;
             }
             else {
@@ -157,16 +158,16 @@ fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u
 
     match op {
         Opcode::Sw => {
-            let store_addr = rs1_data + imm;
+            let store_addr = rs1_data.overflowing_add(imm).0;
             state.store_32(thread_idx, store_addr as u32, rs2_data as u32);
         },
         Opcode::Sh => {
-            let store_addr = rs1_data + imm;
+            let store_addr = rs1_data.overflowing_add(imm).0;
             println!("Store Base: {} Imm: {} Sum: {}", rs1_data, imm, store_addr);
             state.store_16(thread_idx, store_addr as u32, rs2_data as u16);
         },
         Opcode::Sb => {
-            let store_addr = rs1_data + imm;
+            let store_addr = rs1_data.overflowing_add(imm).0;
             state.store_8(thread_idx, store_addr as u32, rs2_data as u8);
         },
         _ => {
@@ -201,8 +202,20 @@ pub fn execute_instr (target_instr: riscv_decode::Instruction, curr_pc: u32, thr
         riscv_decode::Instruction::Add(add) => {
             execute_r_instr(Opcode::Add, add, thread_idx, curr_pc, state);
         }
-        riscv_decode::Instruction::Lw(ld) => {
-            execute_imm_instr(Opcode::Lw, ld, thread_idx, curr_pc, state);
+        riscv_decode::Instruction::Sub(sub) => {
+            execute_r_instr(Opcode::Sub, sub, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Sll(sll) => {
+            execute_r_instr(Opcode::Sll, sll, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Sltu(sltu) => {
+            execute_r_instr(Opcode::Sltu, sltu, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Xor(xor) => {
+            execute_r_instr(Opcode::Xor, xor, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Lw(lw) => {
+            execute_imm_instr(Opcode::Lw, lw, thread_idx, curr_pc, state);
         }
         riscv_decode::Instruction::Lh(lh) => {
             execute_imm_instr(Opcode::Lh, lh, thread_idx, curr_pc, state);
