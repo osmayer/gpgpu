@@ -1,11 +1,11 @@
-use core::{fmt, num};
+use core::{fmt, num, panic};
 use std::{os::unix::thread, thread::Thread};
 use byteorder::{ByteOrder, LittleEndian};
 use riscv_decode;
 use crate::program_loader::{self, Segment, SegmentMetadata};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct ThreadState {
+pub struct ThreadState {
     pc:         u32,
     registers:  [u32; 32],
     halted:     bool
@@ -25,7 +25,7 @@ struct  SectionImage {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SystemState {
-    thread_states: Vec<ThreadState>,
+    pub thread_states: Vec<ThreadState>,
     memory_state:  Vec<SectionImage>
 }
 
@@ -57,7 +57,7 @@ impl ThreadState {
         self.registers[idx as usize]
     }
 
-    pub fn write_register(&mut self, idx: i32, new_val: u32) {
+    pub fn write_register(&mut self, idx: u32, new_val: u32) {
         if idx < 0  || idx > 31 {
             assert!(false, "Tried to read invalid index");
         }
@@ -82,7 +82,7 @@ impl fmt::Display for ThreadState {
         // Use the write! macro to define the string representation
         writeln!(f, "PC: {}", self.get_pc())?;
         for i in 0..32 {
-            writeln!(f, "x{}: {}", i, self.read_register(i))?;
+            writeln!(f, "x{}: {}", i, self.read_register(i) as i32)?;
         }
         writeln!(f, "Halted: {}", self.is_halted())
     }
@@ -147,7 +147,7 @@ impl SystemState {
             let req_start_addr= req_addr as usize;
             let req_end_addr  = (req_start_addr + 4) as usize;
 
-            if req_start_addr >= segment_start && req_end_addr < segment_end {
+            if req_start_addr >= segment_start && req_end_addr <= segment_end {
                 let effective_start = req_start_addr - segment_start;
                 let effective_end   = effective_start + req_size; 
             
@@ -164,7 +164,7 @@ impl SystemState {
 
     pub fn fetch_instr (&self, thread_idx: u32) -> (u32, Option<riscv_decode::Instruction>) {
         let curr_pc                            = self.thread_states[thread_idx as usize].get_pc();
-        let mem_loc = self.get_effective_addr(curr_pc, 4);
+        let mem_loc = self.get_effective_addr(curr_pc, 1);
         let seg_idx                  = mem_loc.0;
         let byte_idx                 = mem_loc.1;
 
@@ -172,7 +172,8 @@ impl SystemState {
             (Some(seg_idx), Some(byte_idx)) => {
                 match &self.memory_state[seg_idx].data {
                     SectionData::Instruction(i) => {
-                        (curr_pc, Some(i[byte_idx].clone()))
+                        let pc_idx = byte_idx / 4;
+                        (curr_pc, Some(i[pc_idx].clone()))
                     },
                     SectionData::Data(_) => {
                         (curr_pc, None)
@@ -191,5 +192,59 @@ impl SystemState {
 
     pub fn update_pc(&mut self, thread_idx: u32, new_pc: u32) {
         self.thread_states[thread_idx as usize].set_pc(new_pc);
+    }
+
+    pub fn halt_thread(&mut self, thread_idx: u32) {
+        self.thread_states[thread_idx as usize].halt();
+    }
+
+    pub fn is_thread_halted(&self, thread_idx: u32) -> bool {
+        self.thread_states[thread_idx as usize].is_halted()
+    }
+
+    pub fn read_thread_register(&self, thread_idx: u32, register_idx: u32) -> u32 {
+        self.thread_states[thread_idx as usize].read_register(register_idx)
+    }
+
+    pub fn write_thread_register(&mut self, thread_idx: u32, register_idx: u32, new_val: u32) {
+        self.thread_states[thread_idx as usize].write_register(register_idx, new_val);
+    }
+
+    pub fn load (&self, thread_idx: u32, req_addr: u32) -> u32 {
+        let (segment, ea) = self.get_effective_addr(req_addr, 4); 
+        match (segment, ea) {
+            (Some(s), Some(a)) => {
+                match &self.memory_state[s as usize].data {
+                    SectionData::Data(d) => {
+                        LittleEndian::read_u32(&d[a..a + 4])
+                    },
+                    _ => {
+                        panic!("Illegal Read from Instruction Memory");
+                    }
+                }
+            },
+            _ => {
+                panic!("Illegal load address!");
+            }
+        }
+    }
+
+    pub fn store (&mut self, thread_idx: u32, req_addr: u32, new_val: u32)  {
+        let (segment, ea) = self.get_effective_addr(req_addr, 4); 
+        match (segment, ea) {
+            (Some(s), Some(a)) => {
+                match &mut self.memory_state[s as usize].data {
+                    SectionData::Data(d) => {
+                        LittleEndian::write_u32(&mut d[a..a + 4], new_val)
+                    },
+                    _ => {
+                        panic!("Illegal Write to Instruction Memory");
+                    }
+                }
+            },
+            _ => {
+                panic!("Illegal store address!");
+            }
+        }
     }
 }

@@ -117,7 +117,7 @@ pub fn get_u32 (memory_map: &Vec<Segment>, req_addr: u32) -> Option<u32> {
         let req_start_addr= req_addr as usize;
         let req_end_addr  = (req_start_addr + 4) as usize;
 
-        if req_start_addr >= segment_start && req_end_addr < segment_end {
+        if req_start_addr >= segment_start && req_end_addr <= segment_end {
             let effective_start = req_start_addr - segment_start;
             let effective_end   = effective_start + 4; 
             
