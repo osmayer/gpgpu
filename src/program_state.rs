@@ -1,4 +1,5 @@
 use core::{fmt, num, panic};
+use std::os::unix::thread;
 use byteorder::{ByteOrder, LittleEndian};
 use riscv_decode;
 use crate::program_loader::{self, Segment, SegmentMetadata};
@@ -118,7 +119,18 @@ impl SystemState {
                     let curr_instr = program_loader::get_u32(program_image, curr_loc);
                     match curr_instr {
                         Some(u) => {
-                            curr_instructions.push(riscv_decode::decode(u).ok().expect("Found illegal instruction"));
+                            println!("{:x}", u);
+                            
+                            let instr = riscv_decode::decode(u).ok();
+                            match instr {
+                                Some(i) => {
+                                    curr_instructions.push(i);
+                                }
+                                _ => {
+                                    println!("Illegal instr found!");
+                                }
+                            }
+                            
                             curr_loc += 4;
                         },
                         _ => {
@@ -228,7 +240,7 @@ impl SystemState {
                         LittleEndian::read_u32(&d[a..a + 4])
                     },
                     _ => {
-                        panic!("Illegal Read from Instruction Memory");
+                        panic!("Illegal Read from Data Memory of size 4 at {:x}", req_addr);
                     }
                 }
             },
@@ -247,7 +259,7 @@ impl SystemState {
                         LittleEndian::read_u16(&d[a..a + 2])
                     },
                     _ => {
-                        panic!("Illegal Read from Instruction Memory");
+                        panic!("Illegal Read from Data Memory of size 2 at {:x}", req_addr);
                     }
                 }
             },
@@ -266,7 +278,7 @@ impl SystemState {
                         d[a]
                     },
                     _ => {
-                        panic!("Illegal Read from Instruction Memory");
+                        panic!("Illegal Read from Data Memory of Size 1 at {:x}", req_addr);
                     }
                 }
             },
