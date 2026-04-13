@@ -38,10 +38,10 @@ fn main() -> io::Result<()> {
         let curr_instr = system_state.fetch_instr(0);
         match curr_instr.1 {
             Some(instr) => {
-                println!("{:?}", instr);
+                println!("pc: {:x} instr: {:?}", curr_instr.0, instr);
                 execute_instr(instr, curr_instr.0, 0, &mut system_state);
             },
-            _ => {
+            _ => {     
                 panic!("Illegal PC Value!");
             }
         }
