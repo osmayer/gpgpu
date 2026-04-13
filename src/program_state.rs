@@ -4,6 +4,9 @@ use byteorder::{ByteOrder, LittleEndian};
 use riscv_decode;
 use crate::program_loader::{self, Segment, SegmentMetadata};
 
+const INITIAL_SP: u32 = 0x7ff00000;
+const INITIAL_GP: u32 = 0x10000000; 
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ThreadState {
     pc:         u32,
@@ -31,11 +34,14 @@ pub struct SystemState {
 
 impl ThreadState {
     pub fn new(starting_pc: u32) -> Self {
-        ThreadState { 
+        let mut new_state= ThreadState { 
             pc: starting_pc, 
             registers: [0; 32],
             halted: false
-        }
+        };
+        new_state.registers[2] = INITIAL_SP;
+        new_state.registers[3] = INITIAL_GP;
+        new_state
     }
 
     pub fn get_pc(&self) -> u32 {
@@ -80,9 +86,9 @@ impl ThreadState {
 impl fmt::Display for ThreadState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Use the write! macro to define the string representation
-        writeln!(f, "PC: {}", self.get_pc())?;
+        writeln!(f, "PC: {:#x}", self.get_pc())?;
         for i in 0..32 {
-            writeln!(f, "x{}: {}", i, self.read_register(i) as i32)?;
+            writeln!(f, "x{:<2} \t {:#010X} ({})", i, self.read_register(i), self.read_register(i) as i32)?;
         }
         writeln!(f, "Halted: {}", self.is_halted())
     }

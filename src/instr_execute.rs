@@ -96,7 +96,6 @@ fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread_idx:
         },
         Opcode::Addi => {
             let result = rs1_data + imm;
-            println!("Sum: {}, Imm: {}", result, imm);
             state.write_thread_register(thread_idx, rd, result as u32);
         }
         Opcode::Slti => {
