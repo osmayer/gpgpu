@@ -9,5 +9,7 @@
 !/medium_tests
 !/benchmarks
 !/basic_thread_tests
+!/tests
 
 *.err
+*.bin
