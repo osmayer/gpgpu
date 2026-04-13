@@ -2,6 +2,7 @@ use core::panic;
 use std::thread::Thread;
 
 use object::elf::R_NIOS2_TLS_DTPMOD;
+use riscv_decode::types::ShiftType;
 
 use crate::program_state;
 enum Opcode {
@@ -48,8 +49,8 @@ enum Opcode {
 fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
     let rs1 = instr.rs1();
     let rs2 = instr.rs2();
-    let rs1_data = state.read_thread_register(thread_idx, rs1);
-    let rs2_data = state.read_thread_register(thread_idx, rs2);
+    let rs1_data = state.read_thread_register(thread_idx, rs1) as i32;
+    let rs2_data = state.read_thread_register(thread_idx, rs2) as i32;
     let result;
 
     match op {
@@ -77,7 +78,7 @@ fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread_idx: u
         }
     }
 
-    state.write_thread_register(thread_idx, instr.rd(), result);
+    state.write_thread_register(thread_idx, instr.rd(), result as u32);
     state.incr_pc(thread_idx);
 }
 
@@ -91,9 +92,25 @@ fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread_idx:
 
     match op {
         Opcode::Lw => {
-            let load_data = state.load(thread_idx, (rs1_data+imm) as u32);
+            let load_data = state.load_32(thread_idx, (rs1_data+imm) as u32);
             state.write_thread_register(thread_idx, rd, load_data);
-        },
+        }
+        Opcode::Lh => {
+            let load_data = (((state.load_16(thread_idx, (rs1_data+imm) as u32) as i32) << 16) >> 16) as u32;
+            state.write_thread_register(thread_idx, rd, load_data);
+        }
+        Opcode::Lhu => {
+            let load_data = state.load_16(thread_idx, (rs1_data+imm) as u32) as u32;
+            state.write_thread_register(thread_idx, rd, load_data);
+        }
+        Opcode::Lb => {
+            let load_data = (((state.load_8(thread_idx, (rs1_data+imm) as u32) as i32) << 24) >> 24) as u32;
+            state.write_thread_register(thread_idx, rd, load_data);
+        }
+        Opcode::Lbu => {
+            let load_data = state.load_8(thread_idx, (rs1_data+imm) as u32) as u32;
+            state.write_thread_register(thread_idx, rd, load_data);
+        }
         Opcode::Addi => {
             let result = rs1_data + imm;
             state.write_thread_register(thread_idx, rd, result as u32);
@@ -141,10 +158,33 @@ fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u
     match op {
         Opcode::Sw => {
             let store_addr = rs1_data + imm;
-            state.store(thread_idx, store_addr, rs2_data);
+            state.store_32(thread_idx, store_addr, rs2_data);
+        },
+        Opcode::Sh => {
+            let store_addr = rs1_data + imm;
+            state.store_16(thread_idx, store_addr, rs2_data as u16);
+        },
+        Opcode::Sb => {
+            let store_addr = rs1_data + imm;
+            state.store_8(thread_idx, store_addr, rs2_data as u8);
         },
         _ => {
             panic!("Illegal I-Type Instruction!");
+        }
+    }
+    state.incr_pc(thread_idx);
+}
+
+fn execute_u_instr (op: Opcode, instr: riscv_decode::types::UType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
+    let rd = instr.rd();
+    let imm = instr.imm();
+
+    match op {
+        Opcode::Lui => {
+            state.write_thread_register(thread_idx, rd, imm);
+        },
+        _ => {
+            panic!("Illegal U Type Instruction!");
         }
     }
     state.incr_pc(thread_idx);
@@ -154,10 +194,22 @@ pub fn execute_instr (target_instr: riscv_decode::Instruction, curr_pc: u32, thr
     match target_instr {
         riscv_decode::Instruction::Add(add) => {
             execute_r_instr(Opcode::Add, add, thread_idx, curr_pc, state);
-        },
+        }
         riscv_decode::Instruction::Lw(ld) => {
             execute_imm_instr(Opcode::Lw, ld, thread_idx, curr_pc, state);
-        },
+        }
+        riscv_decode::Instruction::Lh(lh) => {
+            execute_imm_instr(Opcode::Lh, lh, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Lhu(lhu) => {
+            execute_imm_instr(Opcode::Lhu, lhu, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Lb(lb) => {
+            execute_imm_instr(Opcode::Lb, lb, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Lbu(lbu) => {
+            execute_imm_instr(Opcode::Lbu, lbu, thread_idx, curr_pc, state);
+        }
         riscv_decode::Instruction::Sw(sw) => {
             execute_s_instr(Opcode::Sw, sw, thread_idx, curr_pc, state);
         },
@@ -167,8 +219,17 @@ pub fn execute_instr (target_instr: riscv_decode::Instruction, curr_pc: u32, thr
         riscv_decode::Instruction::Addi(addi) => {
             execute_imm_instr(Opcode::Addi, addi, thread_idx, curr_pc, state);
         },
+        riscv_decode::Instruction::Lui(lui) => {
+            execute_u_instr(Opcode::Lui, lui, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Sh(sh) => {
+            execute_s_instr(Opcode::Sh, sh, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Sb(sb) => {
+            execute_s_instr(Opcode::Sb, sb, thread_idx, curr_pc, state);
+        }
         _ => {
-            panic!("Unimplemented Instruction!");
+            panic!("Unimplemented Instruction {:?}!", target_instr);
         }
     }
 }

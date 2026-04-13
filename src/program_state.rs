@@ -87,9 +87,11 @@ impl fmt::Display for ThreadState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Use the write! macro to define the string representation
         writeln!(f, "PC: {:#x}", self.get_pc())?;
+        writeln!(f, "===== BEGIN REGISTER DUMP =====")?;
         for i in 0..32 {
             writeln!(f, "x{:<2} \t {:#010X} ({})", i, self.read_register(i), self.read_register(i) as i32)?;
         }
+        writeln!(f, "===== END REGISTER DUMP =====")?;
         writeln!(f, "Halted: {}", self.is_halted())
     }
 
@@ -216,7 +218,7 @@ impl SystemState {
         self.thread_states[thread_idx as usize].write_register(register_idx, new_val);
     }
 
-    pub fn load (&self, thread_idx: u32, req_addr: u32) -> u32 {
+    pub fn load_32 (&self, thread_idx: u32, req_addr: u32) -> u32 {
         let (segment, ea) = self.get_effective_addr(req_addr, 4); 
         match (segment, ea) {
             (Some(s), Some(a)) => {
@@ -235,13 +237,91 @@ impl SystemState {
         }
     }
 
-    pub fn store (&mut self, thread_idx: u32, req_addr: u32, new_val: u32)  {
+    pub fn load_16 (&self, thread_idx: u32, req_addr: u32) -> u16 {
+        let (segment, ea) = self.get_effective_addr(req_addr, 4); 
+        match (segment, ea) {
+            (Some(s), Some(a)) => {
+                match &self.memory_state[s as usize].data {
+                    SectionData::Data(d) => {
+                        LittleEndian::read_u16(&d[a..a + 2])
+                    },
+                    _ => {
+                        panic!("Illegal Read from Instruction Memory");
+                    }
+                }
+            },
+            _ => {
+                panic!("Illegal load address!");
+            }
+        }
+    }
+
+    pub fn load_8 (&self, thread_idx: u32, req_addr: u32) -> u8 {
+        let (segment, ea) = self.get_effective_addr(req_addr, 4); 
+        match (segment, ea) {
+            (Some(s), Some(a)) => {
+                match &self.memory_state[s as usize].data {
+                    SectionData::Data(d) => {
+                        d[a]
+                    },
+                    _ => {
+                        panic!("Illegal Read from Instruction Memory");
+                    }
+                }
+            },
+            _ => {
+                panic!("Illegal load address!");
+            }
+        }
+    }
+
+    pub fn store_32 (&mut self, thread_idx: u32, req_addr: u32, new_val: u32)  {
         let (segment, ea) = self.get_effective_addr(req_addr, 4); 
         match (segment, ea) {
             (Some(s), Some(a)) => {
                 match &mut self.memory_state[s as usize].data {
                     SectionData::Data(d) => {
                         LittleEndian::write_u32(&mut d[a..a + 4], new_val)
+                    },
+                    _ => {
+                        panic!("Illegal Write to Instruction Memory");
+                    }
+                }
+            },
+            _ => {
+                panic!("Illegal store address!");
+            }
+        }
+    }
+
+     pub fn store_16 (&mut self, thread_idx: u32, req_addr: u32, new_val: u16)  {
+        println!("Storing to {:x}", req_addr);
+        let (segment, ea) = self.get_effective_addr(req_addr, 2); 
+        match (segment, ea) {
+            (Some(s), Some(a)) => {
+                match &mut self.memory_state[s as usize].data {
+                    SectionData::Data(d) => {
+                        LittleEndian::write_u16(&mut d[a..a + 2], new_val)
+                    },
+                    _ => {
+                        panic!("Illegal Write to Instruction Memory");
+                    }
+                }
+            },
+            _ => {
+                panic!("Illegal store address!");
+            }
+        }
+    }
+
+     pub fn store_8 (&mut self, thread_idx: u32, req_addr: u32, new_val: u8)  {
+        let (segment, ea) = self.get_effective_addr(req_addr, 1); 
+        match (segment, ea) {
+            (Some(s), Some(a)) => {
+                match &mut self.memory_state[s as usize].data {
+                    SectionData::Data(d) => {
+                        // LittleEndian::write_u32(&mut d[a..a + 4], new_val)
+                        d[a] = new_val;
                     },
                     _ => {
                         panic!("Illegal Write to Instruction Memory");

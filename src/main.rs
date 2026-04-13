@@ -38,6 +38,7 @@ fn main() -> io::Result<()> {
         let curr_instr = system_state.fetch_instr(0);
         match curr_instr.1 {
             Some(instr) => {
+                println!("{:?}", instr);
                 execute_instr(instr, curr_instr.0, 0, &mut system_state);
             },
             _ => {
@@ -47,6 +48,7 @@ fn main() -> io::Result<()> {
     }
 
     println!("{}", system_state.thread_states[0]);
+
     
     Ok(())
 }
