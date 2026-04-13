@@ -1,7 +1,6 @@
 use core::panic;
 use std::thread::Thread;
 
-use object::{elf::R_NIOS2_TLS_DTPMOD, macho::S_ZEROFILL};
 use riscv_decode::types::ShiftType;
 
 use crate::program_state;
@@ -60,12 +59,30 @@ fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread_idx: u
         Opcode::Sub => {
             result = rs1_data.overflowing_sub(rs2_data).0;
         },
+        Opcode::And => {
+            result = rs1_data & rs2_data;
+        },
+        Opcode::Or => {
+            result = rs1_data | rs2_data;
+        }
+        Opcode::Srl => {
+            result = ((rs1_data as u32) >> ((rs2_data as u32) & 0x1F)) as i32
+        }
+        Opcode::Sra => {
+            result = rs1_data >> ((rs2_data) & 0x1F);
+        }
         Opcode::Sll => {
             result = rs1_data << (rs2_data & 0x1F);
         },
         Opcode::Sltu => {
-            println!("{} {} {} {} {}", rs1, rs2, rs1_data, rs2_data, instr.rd());
             if (rs1_data as u32) < (rs2_data as u32) {
+                result = 1;
+            } else {
+                result = 0;
+            }
+        },
+        Opcode::Slt => {
+            if (rs1_data) < (rs2_data) {
                 result = 1;
             } else {
                 result = 0;
@@ -135,7 +152,7 @@ fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread_idx:
         }
         Opcode::Sltiu => {
             let result;
-            if rs1_data < imm {
+            if (rs1_data as u32) < (imm as u32) {
                 result = 1;
             }
             else {
@@ -149,11 +166,17 @@ fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread_idx:
             state.write_thread_register(thread_idx, rd, result as u32);
             state.incr_pc(thread_idx);
         }
+        Opcode::Andi => {
+            let result = rs1_data & imm;
+            state.write_thread_register(thread_idx, rd, result as u32);
+            state.incr_pc(thread_idx);
+        }
         Opcode::Ori => {
             let result = rs1_data | imm;
             state.write_thread_register(thread_idx, rd, result as u32);
             state.incr_pc(thread_idx);
         }
+        
         Opcode::Jalr => {
             let target_addr: u32 = rs1_data.overflowing_add(imm).0 as u32;
             let result = (curr_pc as i32).overflowing_add(4).0;
@@ -271,6 +294,36 @@ fn execute_u_instr (op: Opcode, instr: riscv_decode::types::UType, thread_idx: u
     state.incr_pc(thread_idx);
 }
 
+fn execute_shift_instr (op: Opcode, instr: riscv_decode::types::ShiftType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
+    let rd = instr.rd();
+    let rs1 = instr.rs1();
+    let imm = instr.shamt() & 0x1F;
+    println!("{}", imm as i32);
+    
+    let rs1_data = state.read_thread_register(thread_idx, rs1);
+
+    match op {
+        Opcode::Srli => {
+            let result = rs1_data as u32 >> ((imm as u32) & 0x1F);
+            state.write_thread_register(thread_idx, rd, result);
+            state.incr_pc(thread_idx);
+        }
+        Opcode::Srai => {
+            let result = (rs1_data as i32) >> ((imm as i32) & 0x1F);
+            state.write_thread_register(thread_idx, rd, result as u32);
+            state.incr_pc(thread_idx);
+        }
+         Opcode::Slli => {
+            let result = (rs1_data as u32) << ((imm as u32) & 0x1F);
+            state.write_thread_register(thread_idx, rd, result as u32);
+            state.incr_pc(thread_idx);
+        }
+        _ => {
+            panic!("Illegal U Type Instruction!");
+        }
+    }
+}
+
 fn execute_uj_instr (op: Opcode, instr: riscv_decode::types::JType, thread_idx: u32, curr_pc: u32, state: &mut program_state::SystemState) {
     let rd = instr.rd();
     let imm = ((instr.imm() as i32) << 12) >> 12;
@@ -301,6 +354,21 @@ pub fn execute_instr (target_instr: riscv_decode::Instruction, curr_pc: u32, thr
         riscv_decode::Instruction::Sltu(sltu) => {
             execute_r_instr(Opcode::Sltu, sltu, thread_idx, curr_pc, state);
         }
+        riscv_decode::Instruction::And(and) => {
+            execute_r_instr(Opcode::And, and, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Or(or) => {
+            execute_r_instr(Opcode::Or, or, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Srl(srl) => {
+            execute_r_instr(Opcode::Srl, srl, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Sra(sra) => {
+            execute_r_instr(Opcode::Sra, sra, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Slt(slt) => {
+            execute_r_instr(Opcode::Slt, slt, thread_idx, curr_pc, state);
+        }
         riscv_decode::Instruction::Xor(xor) => {
             execute_r_instr(Opcode::Xor, xor, thread_idx, curr_pc, state);
         }
@@ -330,6 +398,27 @@ pub fn execute_instr (target_instr: riscv_decode::Instruction, curr_pc: u32, thr
         }
         riscv_decode::Instruction::Ori(ori) => {
             execute_imm_instr(Opcode::Ori, ori, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Xori(xori) => {
+            execute_imm_instr(Opcode::Xori, xori, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Andi(andi) => {
+            execute_imm_instr(Opcode::Andi, andi, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Slti(slti) => {
+            execute_imm_instr(Opcode::Slti, slti, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Sltiu(sltiu) => {
+            execute_imm_instr(Opcode::Sltiu, sltiu, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Slli(slli) => {
+            execute_shift_instr(Opcode::Slli, slli, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Srli(srli) => {
+            execute_shift_instr(Opcode::Srli, srli, thread_idx, curr_pc, state);
+        }
+        riscv_decode::Instruction::Srai(srai) => {
+            execute_shift_instr(Opcode::Srai, srai, thread_idx, curr_pc, state);
         }
         riscv_decode::Instruction::Lui(lui) => {
             execute_u_instr(Opcode::Lui, lui, thread_idx, curr_pc, state);

@@ -1,5 +1,4 @@
 use core::{fmt, num, panic};
-use std::{os::unix::thread, thread::Thread};
 use byteorder::{ByteOrder, LittleEndian};
 use riscv_decode;
 use crate::program_loader::{self, Segment, SegmentMetadata};
@@ -144,10 +143,11 @@ impl SystemState {
             }
         }
 
+        println!("{:?}", new_state.memory_state);
         new_state
     }
 
-    fn get_effective_addr (&self, req_addr: u32, req_size: usize) -> (Option<usize>, Option<usize>) {
+    fn get_effective_addr (&self, req_addr: u32, req_size: usize, can_resize: bool) -> (Option<usize>, Option<usize>) {
         let mut seg_id: usize = 0; 
         for segment in &self.memory_state {
             let segment_start = segment.metadata.base_addr as usize;
@@ -159,7 +159,7 @@ impl SystemState {
                 let effective_start = req_start_addr - segment_start;
                 let effective_end   = effective_start + req_size; 
             
-                if effective_end as u32 > segment.metadata.allocated_size {
+                if effective_end as u32 > segment.metadata.allocated_size && !can_resize {
                     return (None, None);
                 }
 
@@ -172,7 +172,7 @@ impl SystemState {
 
     pub fn fetch_instr (&self, thread_idx: u32) -> (u32, Option<riscv_decode::Instruction>) {
         let curr_pc                            = self.thread_states[thread_idx as usize].get_pc();
-        let mem_loc = self.get_effective_addr(curr_pc, 1);
+        let mem_loc = self.get_effective_addr(curr_pc, 1, false);
         let seg_idx                  = mem_loc.0;
         let byte_idx                 = mem_loc.1;
 
@@ -219,7 +219,8 @@ impl SystemState {
     }
 
     pub fn load_32 (&self, thread_idx: u32, req_addr: u32) -> u32 {
-        let (segment, ea) = self.get_effective_addr(req_addr, 4); 
+        let (segment, ea) = self.get_effective_addr(req_addr, 4, false); 
+        println!("{:?} {:x}", ea, req_addr);
         match (segment, ea) {
             (Some(s), Some(a)) => {
                 match &self.memory_state[s as usize].data {
@@ -238,7 +239,7 @@ impl SystemState {
     }
 
     pub fn load_16 (&self, thread_idx: u32, req_addr: u32) -> u16 {
-        let (segment, ea) = self.get_effective_addr(req_addr, 4); 
+        let (segment, ea) = self.get_effective_addr(req_addr, 4, false); 
         match (segment, ea) {
             (Some(s), Some(a)) => {
                 match &self.memory_state[s as usize].data {
@@ -257,7 +258,7 @@ impl SystemState {
     }
 
     pub fn load_8 (&self, thread_idx: u32, req_addr: u32) -> u8 {
-        let (segment, ea) = self.get_effective_addr(req_addr, 1); 
+        let (segment, ea) = self.get_effective_addr(req_addr, 1, false); 
         match (segment, ea) {
             (Some(s), Some(a)) => {
                 match &self.memory_state[s as usize].data {
@@ -276,11 +277,24 @@ impl SystemState {
     }
 
     pub fn store_32 (&mut self, thread_idx: u32, req_addr: u32, new_val: u32)  {
-        let (segment, ea) = self.get_effective_addr(req_addr, 4); 
+        println!("{}", req_addr);
+        let (segment, ea) = self.get_effective_addr(req_addr, 4, true); 
+
+        let mut did_resize = false; 
+        let mut new_len = 0; 
+        let mut seg_id = 0; 
         match (segment, ea) {
             (Some(s), Some(a)) => {
                 match &mut self.memory_state[s as usize].data {
                     SectionData::Data(d) => {
+                        let len = d.len();
+                        if a+4 >= len {
+                            d.resize(a+4, 0);
+                            did_resize = true; 
+                            new_len = a + 4; 
+                            seg_id = s;
+                        }
+
                         LittleEndian::write_u32(&mut d[a..a + 4], new_val)
                     },
                     _ => {
@@ -292,15 +306,31 @@ impl SystemState {
                 panic!("Illegal store address!");
             }
         }
+
+        if did_resize {
+            self.memory_state[seg_id as usize].metadata.allocated_size = new_len as u32;
+        }
     }
 
      pub fn store_16 (&mut self, thread_idx: u32, req_addr: u32, new_val: u16)  {
         println!("Storing to {:x}", req_addr);
-        let (segment, ea) = self.get_effective_addr(req_addr, 2); 
+        let (segment, ea) = self.get_effective_addr(req_addr, 2,true); 
+        
+        let mut did_resize = false; 
+        let mut new_len = 0; 
+        let mut seg_id = 0; 
         match (segment, ea) {
             (Some(s), Some(a)) => {
                 match &mut self.memory_state[s as usize].data {
                     SectionData::Data(d) => {
+                        let len = d.len();
+                        if a+2 >= len {
+                            d.resize(a+2, 0);
+                            did_resize = true; 
+                            new_len = a + 4; 
+                            seg_id = s;
+                        }
+
                         LittleEndian::write_u16(&mut d[a..a + 2], new_val)
                     },
                     _ => {
@@ -312,14 +342,29 @@ impl SystemState {
                 panic!("Illegal store address!");
             }
         }
+        if did_resize {
+            self.memory_state[seg_id as usize].metadata.allocated_size = new_len as u32;
+        }
     }
 
      pub fn store_8 (&mut self, thread_idx: u32, req_addr: u32, new_val: u8)  {
-        let (segment, ea) = self.get_effective_addr(req_addr, 1); 
+        let (segment, ea) = self.get_effective_addr(req_addr, 1, true); 
+        
+        let mut did_resize = false; 
+        let mut new_len = 0; 
+        let mut seg_id = 0; 
         match (segment, ea) {
             (Some(s), Some(a)) => {
                 match &mut self.memory_state[s as usize].data {
                     SectionData::Data(d) => {
+                        let len = d.len();
+                        if a+1 >= len {
+                            d.resize(a+1, 0);
+                            did_resize = true; 
+                            new_len = a + 4; 
+                            seg_id = s;
+                        }
+
                         // LittleEndian::write_u32(&mut d[a..a + 4], new_val)
                         d[a] = new_val;
                     },
@@ -331,6 +376,9 @@ impl SystemState {
             _ => {
                 panic!("Illegal store address!");
             }
+        }
+        if did_resize {
+            self.memory_state[seg_id as usize].metadata.allocated_size = new_len as u32;
         }
     }
 }

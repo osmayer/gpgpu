@@ -101,7 +101,7 @@ pub fn file_to_image (obj_file: &object::File) -> Vec<Segment> {
             
             let mut result_metadata = segment;
             result_metadata.allocated_size = section_data.len() as u32;
-            result_metadata.size           = section_obj.size() as u32;
+            // result_metadata.size           = section_obj.size() as u32;
             results.push(Segment::new(section_data, result_metadata));
         } else {
             results.push(Segment::new(vec![], segment));
