@@ -9,3 +9,5 @@
 !/medium_tests
 !/benchmarks
 !/basic_thread_tests
+
+*.err

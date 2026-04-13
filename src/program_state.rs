@@ -38,8 +38,10 @@ struct  SectionImage {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SystemState {
-    pub thread_states: Vec<ThreadState>,
-    memory_state:  Vec<SectionImage>
+    pub thread_states: Vec<Vec<ThreadState>>,
+    memory_state:  Vec<SectionImage>,
+    pub threads_per_block: u32,
+    pub num_blocks: u32
 }
 
 impl ThreadState {
@@ -108,15 +110,21 @@ impl fmt::Display for ThreadState {
 }
 
 impl SystemState {
-    pub fn new(program_image: &Vec<Segment>, num_threads: u32) -> Self {
+    pub fn new(program_image: &Vec<Segment>, threads_per_block: u32, num_blocks: u32) -> Self {
         let mut new_state = SystemState {
             thread_states: vec![],
-            memory_state:  vec![]
+            memory_state:  vec![],
+            threads_per_block: threads_per_block,
+            num_blocks: num_blocks
         };
         
         // Make a system state for all threads
-        for _i in 0..num_threads {
-            new_state.thread_states.push(ThreadState::new(4194304));
+        for _i in 0..(num_blocks) {
+            let mut curr_vec = vec![];
+            for _j in 0..(threads_per_block) {
+                curr_vec.push(ThreadState::new(4194304));
+            }
+            new_state.thread_states.push(curr_vec);
         }
 
         // parse memory 
@@ -207,8 +215,8 @@ impl SystemState {
         (None, None)
     }
 
-    pub fn fetch_instr (&self, thread_idx: u32) -> (u32, Option<Instr>) {
-        let curr_pc                            = self.thread_states[thread_idx as usize].get_pc();
+    pub fn fetch_instr (&self, thread_idx: u32, block_idx: u32) -> (u32, Option<Instr>) {
+        let curr_pc                            = self.thread_states[block_idx as usize][thread_idx as usize].get_pc();
         let mem_loc = self.get_effective_addr(curr_pc, 1, false);
         let seg_idx                  = mem_loc.0;
         let byte_idx                 = mem_loc.1;
@@ -231,31 +239,31 @@ impl SystemState {
         }
     }
 
-    pub fn incr_pc(&mut self, thread_idx: u32)  {
-        self.thread_states[thread_idx as usize].advance_pc();
+    pub fn incr_pc(&mut self, thread_idx: u32, block_idx: u32)  {
+        self.thread_states[block_idx as usize][thread_idx as usize].advance_pc();
     }
 
-    pub fn update_pc(&mut self, thread_idx: u32, new_pc: u32) {
-        self.thread_states[thread_idx as usize].set_pc(new_pc);
+    pub fn update_pc(&mut self, thread_idx: u32, block_idx: u32, new_pc: u32) {
+        self.thread_states[block_idx as usize][thread_idx as usize].set_pc(new_pc);
     }
 
-    pub fn halt_thread(&mut self, thread_idx: u32) {
-        self.thread_states[thread_idx as usize].halt();
+    pub fn halt_thread(&mut self, thread_idx: u32, block_idx: u32) {
+        self.thread_states[block_idx as usize][thread_idx as usize].halt();
     }
 
-    pub fn is_thread_halted(&self, thread_idx: u32) -> bool {
-        self.thread_states[thread_idx as usize].is_halted()
+    pub fn is_thread_halted(&self, thread_idx: u32, block_idx: u32) -> bool {
+        self.thread_states[block_idx as usize][thread_idx as usize].is_halted()
     }
 
-    pub fn read_thread_register(&self, thread_idx: u32, register_idx: u32) -> u32 {
-        self.thread_states[thread_idx as usize].read_register(register_idx)
+    pub fn read_thread_register(&self, thread_idx: u32, block_idx: u32, register_idx: u32) -> u32 {
+        self.thread_states[block_idx as usize][thread_idx as usize].read_register(register_idx)
     }
 
-    pub fn write_thread_register(&mut self, thread_idx: u32, register_idx: u32, new_val: u32) {
-        self.thread_states[thread_idx as usize].write_register(register_idx, new_val);
+    pub fn write_thread_register(&mut self, thread_idx: u32, block_idx: u32, register_idx: u32, new_val: u32) {
+        self.thread_states[block_idx as usize][thread_idx as usize].write_register(register_idx, new_val);
     }
 
-    pub fn load_32 (&self, thread_idx: u32, req_addr: u32) -> u32 {
+    pub fn load_32 (&self, thread_idx: u32, block_idx: u32, req_addr: u32) -> u32 {
         let (segment, ea) = self.get_effective_addr(req_addr, 4, false); 
         println!("{:?} {:x}", ea, req_addr);
         match (segment, ea) {
@@ -275,7 +283,7 @@ impl SystemState {
         }
     }
 
-    pub fn load_16 (&self, thread_idx: u32, req_addr: u32) -> u16 {
+    pub fn load_16 (&self, thread_idx: u32, block_idx: u32, req_addr: u32) -> u16 {
         let (segment, ea) = self.get_effective_addr(req_addr, 4, false); 
         match (segment, ea) {
             (Some(s), Some(a)) => {
@@ -294,7 +302,7 @@ impl SystemState {
         }
     }
 
-    pub fn load_8 (&self, thread_idx: u32, req_addr: u32) -> u8 {
+    pub fn load_8 (&self, thread_idx: u32, block_idx: u32, req_addr: u32) -> u8 {
         let (segment, ea) = self.get_effective_addr(req_addr, 1, false); 
         match (segment, ea) {
             (Some(s), Some(a)) => {
@@ -313,7 +321,7 @@ impl SystemState {
         }
     }
 
-    pub fn store_32 (&mut self, thread_idx: u32, req_addr: u32, new_val: u32)  {
+    pub fn store_32 (&mut self, thread_idx: u32, block_idx: u32, req_addr: u32, new_val: u32)  {
         println!("{}", req_addr);
         let (segment, ea) = self.get_effective_addr(req_addr, 4, true); 
 
@@ -349,7 +357,7 @@ impl SystemState {
         }
     }
 
-     pub fn store_16 (&mut self, thread_idx: u32, req_addr: u32, new_val: u16)  {
+     pub fn store_16 (&mut self, thread_idx: u32, block_idx: u32, req_addr: u32, new_val: u16)  {
         println!("Storing to {:x}", req_addr);
         let (segment, ea) = self.get_effective_addr(req_addr, 2,true); 
         
@@ -384,7 +392,7 @@ impl SystemState {
         }
     }
 
-     pub fn store_8 (&mut self, thread_idx: u32, req_addr: u32, new_val: u8)  {
+     pub fn store_8 (&mut self, thread_idx: u32, block_idx: u32, req_addr: u32, new_val: u8)  {
         let (segment, ea) = self.get_effective_addr(req_addr, 1, true); 
         
         let mut did_resize = false; 
