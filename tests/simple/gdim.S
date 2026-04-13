@@ -12,6 +12,6 @@ main:
     add x13, x9, x9
 
     addi x10, x0, 10
-    tid x13
+    gdim x13
     add x0, x10, x10
     ecall
