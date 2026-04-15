@@ -1,57 +1,6 @@
-use core::{fmt, num, panic};
+use std::fmt;
 use byteorder::{ByteOrder, LittleEndian};
-use riscv_decode;
-use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}};
-
-const INITIAL_SP: u32 = 0x7ff00000;
-const INITIAL_GP: u32 = 0x10000000; 
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ThreadState {
-    pc:         u32,
-    registers:  [u32; 32],
-    halted:     bool,
-    waiting_for_mem: bool
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Instr {
-    Custom {
-        op: Opcode,
-        rd: u32, 
-        rs1: u32, 
-        rs2: u32
-    },
-    Standard (riscv_decode::Instruction)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum SectionData {
-    Data (Vec<u8>),
-    Instruction (Vec<Instr>)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum MemRequestType {
-    Read,
-    Write,
-    NoReq
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct  SectionImage {
-    metadata: SegmentMetadata,
-    data:     SectionData
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MemRequest {
-    cycles_waited: u32,
-    req_type: MemRequestType,
-    valid: bool,
-    ready: bool,
-    mem_delay: u32
-}
+use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}, thread_ctrl::{Instr, mem_request::MemRequest, thread_state::ThreadState}}; 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SystemState {
@@ -63,78 +12,18 @@ pub struct SystemState {
     pub cycles_elapsed: u32
 }
 
-impl ThreadState {
-    pub fn new(starting_pc: u32) -> Self {
-        let mut new_state= ThreadState { 
-            pc: starting_pc, 
-            registers: [0; 32],
-            halted: false,
-            waiting_for_mem: false
-        };
-        new_state.registers[2] = INITIAL_SP;
-        new_state.registers[3] = INITIAL_GP;
-        new_state
-    }
-
-    pub fn get_pc(&self) -> u32 {
-        self.pc
-    }
-
-    pub fn set_pc(&mut self, new_pc: u32) {
-        self.pc = new_pc;
-    }
-
-    pub fn advance_pc (&mut self) {
-        self.pc += 4; 
-    }
-
-    pub fn read_register(&self, idx: u32) -> u32 {
-        if idx < 0  || idx > 31 {
-            assert!(false, "Tried to read invalid index");
-        }
-        self.registers[idx as usize]
-    }
-
-    pub fn write_register(&mut self, idx: u32, new_val: u32) {
-        if idx < 0  || idx > 31 {
-            assert!(false, "Tried to read invalid index");
-        }
-        
-        if idx != 0 {
-            self.registers[idx as usize] = new_val;
-        }
-    }
-
-    pub fn is_halted(&self) -> bool {
-        self.halted
-    }
-
-    pub fn halt(&mut self) {
-        self.halted = true;
-    }
-
-    pub fn set_waiting_for_mem(&mut self, new_val: bool) {
-        self.waiting_for_mem = new_val;
-    }
-
-    pub fn get_waiting_for_mem(&mut self) -> bool {
-        self.waiting_for_mem
-    }
-
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum SectionData {
+    Data (Vec<u8>),
+    Instruction (Vec<Instr>)
 }
 
-impl fmt::Display for ThreadState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Use the write! macro to define the string representation
-        writeln!(f, "PC: {:#x}", self.get_pc())?;
-        writeln!(f, "===== BEGIN REGISTER DUMP =====")?;
-        for i in 0..32 {
-            writeln!(f, "x{:<2} \t {:#010X} ({})", i, self.read_register(i), self.read_register(i) as i32)?;
-        }
-        writeln!(f, "===== END REGISTER DUMP =====")?;
-        writeln!(f, "Halted: {}", self.is_halted())
-    }
 
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct  SectionImage {
+    metadata: SegmentMetadata,
+    data:     SectionData
 }
 
 impl SystemState {
@@ -598,54 +487,5 @@ impl fmt::Display for SystemState {
         }
         // Use the write! macro to define the string representation
         writeln!(f, "Cycles Elapsed {}", self.cycles_elapsed)
-    }
-}
-
-impl MemRequest {
-    pub fn new (mem_delay: u32) -> MemRequest{
-        let new_state=MemRequest {
-            ready: false,
-            cycles_waited: 0,
-            req_type: MemRequestType::NoReq,
-            valid: false,
-            mem_delay: mem_delay
-        };
-        new_state
-    }
-
-    pub fn incr_cycles (& mut self) {
-        if self.valid {
-            self.cycles_waited += 1;
-            // FIX THIS NUMBER TO CHANGE MEM DELAY
-            if self.cycles_waited == self.mem_delay {
-                self.ready = true;
-            }
-        }
-    }
-
-    pub fn check_if_ready (& self) -> bool {
-        self.ready
-    }
-
-    pub fn check_if_valid (& self) -> bool {
-        self.valid
-    }
-
-    pub fn read_request (& mut self) {
-        self.valid = true;
-        self.cycles_waited = 0;
-        self.req_type = MemRequestType::Read;
-    }
-
-    pub fn reset_request (& mut self) {
-        self.valid = false;
-        self.ready = false;
-        self.req_type = MemRequestType::NoReq;
-    }
-
-    pub fn write_request (& mut self) {
-        self.req_type = MemRequestType::Write;
-        self.valid = true;
-        self.cycles_waited = 0;
     }
 }

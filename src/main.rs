@@ -1,6 +1,6 @@
-pub mod program_state;
 pub mod instr_execute;
 pub mod program_loader;
+pub mod thread_ctrl; 
 
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader};
@@ -23,7 +23,7 @@ struct Parameters {
     memory_delay: u32
 }
 
-fn thread_execute_instr (thread_idx: u32, block_idx: u32, system_state: &mut program_state::SystemState ) {
+fn thread_execute_instr (thread_idx: u32, block_idx: u32, system_state: &mut thread_ctrl::system_state::SystemState ) {
     if system_state.is_thread_halted(thread_idx, block_idx) {
         return;
     }
@@ -51,7 +51,7 @@ fn main() -> io::Result<()> {
 
     
     let image = program_loader::file_to_image(&obj_file);
-    let mut system_state = program_state::SystemState::new(&image, user_args.threads_per_block, user_args.num_blocks, user_args.memory_delay);
+    let mut system_state = thread_ctrl::system_state::SystemState::new(&image, user_args.threads_per_block, user_args.num_blocks, user_args.memory_delay);
 
     let num_blocks = system_state.get_num_blocks();
     let threads_per_block = system_state.get_threads_per_block();
