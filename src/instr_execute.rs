@@ -112,34 +112,60 @@ fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread_idx:
     let rs1 = instr.rs1();
     let imm = ((instr.imm() as i32) << 20) >> 20;
     let rd = instr.rd();
-
     let rs1_data = state.read_thread_register(thread_idx, block_idx, rs1) as i32; 
 
     match op {
         Opcode::Lw => {
             let load_data = state.load_32(thread_idx, block_idx, (rs1_data+imm) as u32);
-            state.write_thread_register(thread_idx, block_idx, rd, load_data);
-            state.incr_pc(thread_idx, block_idx);
+            match load_data {
+                Some(data) => {
+                    state.write_thread_register(thread_idx, block_idx,rd, data as u32);
+                    state.incr_pc(thread_idx, block_idx);
+                }
+                None => {}
+            } 
         }
         Opcode::Lh => {
-            let load_data = (((state.load_16(thread_idx, block_idx, (rs1_data+imm) as u32) as i32) << 16) >> 16) as u32;
-            state.write_thread_register(thread_idx, block_idx, rd, load_data);
-            state.incr_pc(thread_idx, block_idx);
+            let load_data = state.load_16(thread_idx, block_idx, (rs1_data+imm) as u32);
+            match load_data {
+                Some(data) => {
+                    let new_data = ((data as i32) << 16) >> 16;
+                    state.write_thread_register(thread_idx, block_idx, rd, new_data as u32);
+                    state.incr_pc(thread_idx, block_idx);
+                }
+                None => {}
+            }
         }
         Opcode::Lhu => {
-            let load_data = state.load_16(thread_idx, block_idx, (rs1_data+imm) as u32) as u32;
-            state.write_thread_register(thread_idx, block_idx,rd, load_data);
-            state.incr_pc(thread_idx, block_idx);
+            let load_data = state.load_16(thread_idx, block_idx, (rs1_data+imm) as u32);
+            match load_data {
+                Some(data) => {
+                    state.write_thread_register(thread_idx, block_idx,rd, data as u32);
+                    state.incr_pc(thread_idx, block_idx);
+                }
+                None => {}
+            } 
         }
         Opcode::Lb => {
-            let load_data = (((state.load_8(thread_idx, block_idx, (rs1_data+imm) as u32) as i32) << 24) >> 24) as u32;
-            state.write_thread_register(thread_idx, block_idx, rd, load_data);
-            state.incr_pc(thread_idx, block_idx);
+            let load_data = state.load_8(thread_idx, block_idx, (rs1_data+imm) as u32);
+            match load_data {
+                Some(data) => {
+                    let new_data = ((data as i32) << 24) >> 24;
+                    state.write_thread_register(thread_idx, block_idx, rd, new_data as u32);
+                    state.incr_pc(thread_idx, block_idx);
+                }
+                None => {}
+            }
         }
         Opcode::Lbu => {
-            let load_data = state.load_8(thread_idx, block_idx, (rs1_data+imm) as u32) as u32;
-            state.write_thread_register(thread_idx, block_idx, rd, load_data);
-            state.incr_pc(thread_idx, block_idx);
+            let load_data = state.load_8(thread_idx, block_idx, (rs1_data+imm) as u32);
+            match load_data {
+                Some(data) => {
+                    state.write_thread_register(thread_idx, block_idx,rd, data as u32);
+                    state.incr_pc(thread_idx, block_idx);
+                }
+                None => {}
+            } 
         }
         Opcode::Addi => {
             let result = rs1_data.overflowing_add(imm).0;
@@ -260,25 +286,27 @@ fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u
 
     let rs1_data = state.read_thread_register(thread_idx, block_idx, rs1) as i32;
     let rs2_data = state.read_thread_register(thread_idx, block_idx, rs2) as i32; 
-
+    let mut success = false;
     match op {
         Opcode::Sw => {
             let store_addr = rs1_data.overflowing_add(imm).0;
-            state.store_32(thread_idx, block_idx, store_addr as u32, rs2_data as u32);
+            success = state.store_32(thread_idx, block_idx, store_addr as u32, rs2_data as u32);
         },
         Opcode::Sh => {
             let store_addr = rs1_data.overflowing_add(imm).0;
-            state.store_16(thread_idx, block_idx, store_addr as u32, rs2_data as u16);
+            success = state.store_16(thread_idx, block_idx, store_addr as u32, rs2_data as u16);
         },
         Opcode::Sb => {
             let store_addr = rs1_data.overflowing_add(imm).0;
-            state.store_8(thread_idx, block_idx, store_addr as u32, rs2_data as u8);
+            success = state.store_8(thread_idx, block_idx, store_addr as u32, rs2_data as u8);
         },
         _ => {
             panic!("Illegal I-Type Instruction!");
         }
     }
-    state.incr_pc(thread_idx, block_idx);
+    if success {
+        state.incr_pc(thread_idx, block_idx);
+    }
 }
 
 fn execute_u_instr (op: Opcode, instr: riscv_decode::types::UType, thread_idx: u32, block_idx:u32, curr_pc: u32, state: &mut program_state::SystemState) {

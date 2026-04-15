@@ -18,7 +18,9 @@ struct Parameters {
     #[arg(short, long, default_value_t = 1)]
     threads_per_block: u32,
     #[arg(short, long, default_value_t = 1)]
-    num_blocks: u32
+    num_blocks: u32,
+    #[arg(short, long, default_value_t = 100)]
+    memory_delay: u32
 }
 
 fn thread_execute_instr (thread_idx: u32, block_idx: u32, system_state: &mut program_state::SystemState ) {
@@ -49,14 +51,14 @@ fn main() -> io::Result<()> {
 
     
     let image = program_loader::file_to_image(&obj_file);
-    let mut system_state = program_state::SystemState::new(&image, user_args.threads_per_block, user_args.num_blocks);
+    let mut system_state = program_state::SystemState::new(&image, user_args.threads_per_block, user_args.num_blocks, user_args.memory_delay);
 
     let num_blocks = system_state.get_num_blocks();
     let threads_per_block = system_state.get_threads_per_block();
     
     loop {
         // scheduler does things, decides who's going
-
+        
         // for loop to run threads that have been decided
         for block in 0..num_blocks {
             for thread in 0..threads_per_block {
@@ -80,6 +82,8 @@ fn main() -> io::Result<()> {
                 } 
             }
         }
+
+        system_state.update_total_cycle_count();
         
         if halted {
             break;
