@@ -2,11 +2,9 @@ pub mod instr_execute;
 pub mod program_loader;
 pub mod thread_ctrl; 
 
-use std::fs::{self, File};
-use std::io::{self, BufRead, BufReader};
+use std::io::{self};
 use std::path::Path;
 use clap::Parser;
-use object::{self, Endian, LittleEndian, Object, ObjectSection};
 
 use crate::instr_execute::execute_instr;
 
@@ -30,7 +28,7 @@ fn thread_execute_instr (thread_idx: u32, block_idx: u32, system_state: &mut thr
     let curr_instr = system_state.fetch_instr(thread_idx, block_idx);
     match curr_instr.1 {
         Some(instr) => {
-            println!("pc: {:x} instr: {:?}", curr_instr.0, instr);
+            // println!("pc: {:x} instr: {:?}", curr_instr.0, instr);
             execute_instr(instr, curr_instr.0, thread_idx, block_idx, system_state);
         },
         _ => {     

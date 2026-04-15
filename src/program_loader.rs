@@ -1,11 +1,9 @@
-use std::fs::{self, File};
-use clap::Parser;
 use object::{self, Object, ObjectSection};
 use byteorder::{ByteOrder, LittleEndian};
 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum PrivilegeValue {
+pub enum PrivilegeValue {
     USER,
     KERNEL
 }

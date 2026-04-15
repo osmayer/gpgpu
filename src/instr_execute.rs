@@ -1,8 +1,4 @@
 use core::panic;
-use std::thread::Thread;
-
-use riscv_decode::types::ShiftType;
-
 use crate::thread_ctrl::{self, Instr};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
@@ -53,7 +49,7 @@ pub enum Opcode {
     SwS
 }
 
-fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread_idx: u32, block_idx:u32, curr_pc: u32, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread_idx: u32, block_idx:u32, _curr_pc: u32, state: &mut thread_ctrl::system_state::SystemState) {
     let rs1 = instr.rs1();
     let rs2 = instr.rs2();
     let rs1_data = state.read_thread_register(thread_idx, block_idx, rs1) as i32;
@@ -280,14 +276,14 @@ fn execute_sb_instr (op: Opcode, instr: riscv_decode::types::BType, thread_idx: 
     }
 }
 
-fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u32, block_idx:u32, curr_pc: u32, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u32, block_idx:u32, _curr_pc: u32, state: &mut thread_ctrl::system_state::SystemState) {
     let rs1 = instr.rs1();
     let rs2 = instr.rs2();
     let imm = ((instr.imm() as i32) << 20) >> 20;
 
     let rs1_data = state.read_thread_register(thread_idx, block_idx, rs1) as i32;
     let rs2_data = state.read_thread_register(thread_idx, block_idx, rs2) as i32; 
-    let mut success = false;
+    let success;
     match op {
         Opcode::Sw => {
             let store_addr = rs1_data.overflowing_add(imm).0;
@@ -313,7 +309,6 @@ fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread_idx: u
 fn execute_u_instr (op: Opcode, instr: riscv_decode::types::UType, thread_idx: u32, block_idx:u32, curr_pc: u32, state: &mut thread_ctrl::system_state::SystemState) {
     let rd = instr.rd();
     let imm = instr.imm();
-    println!("{}", imm as i32);
 
     match op {
         Opcode::Lui => {
@@ -330,11 +325,10 @@ fn execute_u_instr (op: Opcode, instr: riscv_decode::types::UType, thread_idx: u
     state.incr_pc(thread_idx, block_idx);
 }
 
-fn execute_shift_instr (op: Opcode, instr: riscv_decode::types::ShiftType, thread_idx: u32, block_idx:u32, curr_pc: u32, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_shift_instr (op: Opcode, instr: riscv_decode::types::ShiftType, thread_idx: u32, block_idx:u32, _curr_pc: u32, state: &mut thread_ctrl::system_state::SystemState) {
     let rd = instr.rd();
     let rs1 = instr.rs1();
     let imm = instr.shamt() & 0x1F;
-    println!("{}", imm as i32);
     
     let rs1_data = state.read_thread_register(thread_idx, block_idx, rs1);
 
@@ -376,9 +370,9 @@ fn execute_uj_instr (op: Opcode, instr: riscv_decode::types::JType, thread_idx: 
     }
 }
 
-fn execute_custom_instr (instr: Instr, thread_idx: u32, block_idx:u32, curr_pc: u32, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_custom_instr (instr: Instr, thread_idx: u32, block_idx:u32, _curr_pc: u32, state: &mut thread_ctrl::system_state::SystemState) {
     match instr {
-        Instr::Custom {op, rd, rs1, rs2} => {
+        Instr::Custom {op, rd, ..} => {
             match op {
                 Opcode::Tid => {
                     state.write_thread_register(thread_idx, block_idx, rd, thread_idx);
@@ -528,7 +522,7 @@ pub fn execute_instr (target_instr: Instr, curr_pc: u32, thread_idx: u32, block_
                 }
             }
         }
-        Instr::Custom{op, rd, rs1, rs2} => {
+        Instr::Custom{op, ..} => {
             match op {
                 Opcode::Tid => {
                     execute_custom_instr(target_instr.clone(), thread_idx, block_idx, curr_pc, state);

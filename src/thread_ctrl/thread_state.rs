@@ -37,14 +37,14 @@ impl ThreadState {
     }
 
     pub fn read_register(&self, idx: u32) -> u32 {
-        if idx < 0  || idx > 31 {
+        if idx > 31 {
             assert!(false, "Tried to read invalid index");
         }
         self.registers[idx as usize]
     }
 
     pub fn write_register(&mut self, idx: u32, new_val: u32) {
-        if idx < 0  || idx > 31 {
+        if idx > 31 {
             assert!(false, "Tried to read invalid index");
         }
         

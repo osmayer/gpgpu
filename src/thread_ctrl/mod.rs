@@ -2,7 +2,7 @@ pub mod system_state;
 pub mod thread_state; 
 pub mod mem_request;
 
-use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}};
+use crate::{instr_execute::Opcode};
 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

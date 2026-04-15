@@ -58,9 +58,7 @@ impl SystemState {
                 loop {
                     let curr_instr = program_loader::get_u32(program_image, curr_loc);
                     match curr_instr {
-                        Some(u) => {
-                            println!("{:x}", u);
-                            
+                        Some(u) => {                            
                             let instr = riscv_decode::decode(u).ok();
                             match instr {
                                 Some(i) => {
@@ -96,7 +94,7 @@ impl SystemState {
                                             }
                                         }
                                     } else {
-                                        println!("Illegal instr found!");
+                                        panic!("Illegal instr found!");
                                     }
                                 }
                             }
@@ -256,7 +254,6 @@ impl SystemState {
         } else {
             self.reset_request(thread_idx, block_idx);
             let (segment, ea) = self.get_effective_addr(req_addr, 4, false); 
-            println!("{:?} {:x}", ea, req_addr);
             match (segment, ea) {
                 (Some(s), Some(a)) => {
                     match &self.memory_state[s as usize].data {
@@ -336,7 +333,6 @@ impl SystemState {
     }
 
     pub fn store_32 (&mut self, thread_idx: u32, block_idx: u32, req_addr: u32, new_val: u32) -> bool {
-        println!("{}", req_addr);
         let ready = self.check_if_ready(thread_idx, block_idx);
         let valid = self.check_if_valid(thread_idx, block_idx);
         if !valid {
@@ -383,7 +379,6 @@ impl SystemState {
     }
 
      pub fn store_16 (&mut self, thread_idx: u32, block_idx: u32, req_addr: u32, new_val: u16) -> bool {
-        println!("Storing to {:x}", req_addr);
         let ready = self.check_if_ready(thread_idx, block_idx);
         let valid = self.check_if_valid(thread_idx, block_idx);
         if !valid {
@@ -482,7 +477,7 @@ impl fmt::Display for SystemState {
         for block in 0..self.get_num_blocks() {
             for thread in 0..self.get_threads_per_block() {
                 writeln!(f, "BID: {} TID: {}", block, thread)?;
-                writeln!(f, "{}", self.thread_states[block as usize][thread as usize]);
+                writeln!(f, "{}", self.thread_states[block as usize][thread as usize])?;
             }
         }
         // Use the write! macro to define the string representation
