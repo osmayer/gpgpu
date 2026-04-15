@@ -10,7 +10,8 @@ const INITIAL_GP: u32 = 0x10000000;
 pub struct ThreadState {
     pc:         u32,
     registers:  [u32; 32],
-    halted:     bool
+    halted:     bool,
+    waiting_for_mem: bool
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -31,9 +32,26 @@ enum SectionData {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum MemRequestType {
+    Read,
+    Write
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct  SectionImage {
     metadata: SegmentMetadata,
     data:     SectionData
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MemRequest {
+    addr: u32,
+    data: u32,
+    ready: bool,
+    cycles_waited: u32,
+    req_type: MemRequestType,
+    valid: bool,
+    size: u32
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -41,7 +59,8 @@ pub struct SystemState {
     pub thread_states: Vec<Vec<ThreadState>>,
     memory_state:  Vec<SectionImage>,
     pub threads_per_block: u32,
-    pub num_blocks: u32
+    pub num_blocks: u32,
+    pub memory_requests: Vec<Vec<MemRequest>>
 }
 
 impl ThreadState {
@@ -49,7 +68,8 @@ impl ThreadState {
         let mut new_state= ThreadState { 
             pc: starting_pc, 
             registers: [0; 32],
-            halted: false
+            halted: false,
+            waiting_for_mem: false
         };
         new_state.registers[2] = INITIAL_SP;
         new_state.registers[3] = INITIAL_GP;
@@ -93,6 +113,14 @@ impl ThreadState {
         self.halted = true;
     }
 
+    pub fn set_waiting_for_mem(&mut self, new_val: bool) {
+        self.waiting_for_mem = new_val;
+    }
+
+    pub fn get_waiting_for_mem(&mut self) -> bool {
+        self.waiting_for_mem
+    }
+
 }
 
 impl fmt::Display for ThreadState {
@@ -115,16 +143,20 @@ impl SystemState {
             thread_states: vec![],
             memory_state:  vec![],
             threads_per_block: threads_per_block,
-            num_blocks: num_blocks
+            num_blocks: num_blocks,
+            memory_requests: vec![]
         };
         
-        // Make a system state for all threads
+        // Make a system state and request array for all threads
         for _i in 0..(num_blocks) {
             let mut curr_vec = vec![];
+            let mut requests_vec = vec![];
             for _j in 0..(threads_per_block) {
                 curr_vec.push(ThreadState::new(4194304));
+                requests_vec.push(MemRequest::new());
             }
             new_state.thread_states.push(curr_vec);
+            new_state.memory_requests.push(requests_vec);
         }
 
         // parse memory 
@@ -266,6 +298,14 @@ impl SystemState {
         self.thread_states[block_idx as usize][thread_idx as usize].halt();
     }
 
+    pub fn is_thread_waiting(&mut self, thread_idx: u32, block_idx: u32) -> bool {
+        self.thread_states[block_idx as usize][thread_idx as usize].get_waiting_for_mem()
+    }
+
+    pub fn set_thread_waiting(&mut self, thread_idx: u32, block_idx: u32, new_val: bool) {
+        self.thread_states[block_idx as usize][thread_idx as usize].set_waiting_for_mem(new_val);
+    }
+
     pub fn is_thread_halted(&self, thread_idx: u32, block_idx: u32) -> bool {
         self.thread_states[block_idx as usize][thread_idx as usize].is_halted()
     }
@@ -284,6 +324,74 @@ impl SystemState {
 
     pub fn get_threads_per_block (&self) -> u32 {
         self.threads_per_block
+    }
+
+    pub fn incr_cycles (& mut self, thread_idx:u32, block_idx:u32) {
+        self.memory_requests[block_idx as usize][thread_idx as usize].incr_cycles();
+    }
+
+    pub fn check_if_ready (& mut self, thread_idx:u32, block_idx:u32) {
+        self.memory_requests[block_idx as usize][thread_idx as usize].check_if_ready();
+    }
+
+    pub fn read_request (& mut self, thread_idx:u32, block_idx:u32, addr: u32, size: u32) {
+        self.memory_requests[block_idx as usize][thread_idx as usize].read_request(addr, size);
+    }
+
+    pub fn get_read_data (& mut self, thread_idx:u32, block_idx:u32) -> Option<u32> {
+        let (addr, size) = self.memory_requests[block_idx as usize][thread_idx as usize].get_read_data();
+        match addr {
+            Some(a) => {
+                match size {
+                    1 => {
+                        Some(self.load_8(thread_idx, block_idx, a) as u32)
+                    }
+                    2 => {
+                        Some(self.load_16(thread_idx, block_idx, a) as u32)
+                    }
+                    4 => {
+                        Some(self.load_32(thread_idx, block_idx, a))
+                    }
+                    _ => {
+                        panic!("invalid size for read");
+                    }
+                }
+            }
+            None => {
+                None
+            }
+        }
+
+    }
+
+    pub fn write_request (& mut self, thread_idx:u32, block_idx:u32, addr: u32, data: u32, size: u32) {
+        self.memory_requests[block_idx as usize][thread_idx as usize].write_request(addr, data, size);
+    }
+
+    pub fn execute_write_request (& mut self, thread_idx:u32, block_idx:u32) -> bool{
+        let (addr, data, size) = self.memory_requests[block_idx as usize][thread_idx as usize].execute_write_request();
+        match addr {
+            Some(a) => {
+                match size {
+                    1 => {
+                        self.store_8(thread_idx, block_idx, a, data as u8);
+                    }
+                    2 => {
+                        self.store_16(thread_idx, block_idx, a, data as u16);
+                    }
+                    4 => {
+                        self.store_32(thread_idx, block_idx, a, data);
+                    }
+                    _ => {
+                        panic!("invalid size for write");
+                    }
+                }
+                true
+            }
+            None => {
+                false
+            }
+        }
     }
 
     pub fn load_32 (&self, thread_idx: u32, block_idx: u32, req_addr: u32) -> u32 {
@@ -463,5 +571,69 @@ impl fmt::Display for SystemState {
         }
         // Use the write! macro to define the string representation
         writeln!(f, "done!")
+    }
+}
+
+impl MemRequest {
+    pub fn new () -> MemRequest{
+        let new_state=MemRequest {
+            addr: 0,
+            data: 0,
+            ready: false,
+            cycles_waited: 0,
+            req_type: MemRequestType::Read,
+            valid: false,
+            size: 0
+        };
+        new_state
+    }
+
+    pub fn incr_cycles (& mut self) {
+        if self.valid {
+            self.cycles_waited += 1;
+            // FIX THIS NUMBER TO CHANGE MEM DELAY
+            if self.cycles_waited == 1 {
+                self.ready = true;
+            }
+        }
+    }
+
+    pub fn check_if_ready (& mut self) -> bool {
+        self.ready
+    }
+
+    pub fn read_request (& mut self, addr: u32, size: u32) {
+        self.addr = addr;
+        self.valid = true;
+        self.cycles_waited = 0;
+        self.req_type = MemRequestType::Read;
+        self.size = size;
+    }
+
+    pub fn get_read_data (& mut self) -> (Option<u32>, u32) {
+        if (self.req_type == MemRequestType::Read) & self.ready & self.valid {
+            self.valid = false;
+            (Some(self.addr), self.size)
+        } else {
+            (None, 0)
+        }
+    }
+
+    pub fn write_request (& mut self, addr: u32, data: u32, size: u32) {
+        self.addr = addr;
+        self.data = data;
+        self.req_type = MemRequestType::Write;
+        self.valid = true;
+        self.cycles_waited = 0;
+        self.size = size
+    }
+
+    pub fn execute_write_request (& mut self) -> (Option<u32>, u32, u32) {
+        if (self.req_type == MemRequestType::Write) & self.ready & self.valid {
+            self.valid = false;
+            (Some(self.addr), self.data, self.size)
+        } else {
+            (None, 0, 0)
+        }
     }
 }

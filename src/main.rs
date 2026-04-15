@@ -64,7 +64,12 @@ fn main() -> io::Result<()> {
             }
         }
 
-        // update memory queue
+        // update memory request state
+        for block in 0..num_blocks {
+            for thread in 0..threads_per_block {
+                system_state.incr_cycles(thread, block);
+            }
+        }
 
         // check if entire program is done
         let mut halted = true;
