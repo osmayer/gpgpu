@@ -15,6 +15,7 @@ impl WarpState {
     pub fn new(warp_idx: u32, starting_thread_idx: u32, threads_per_block: u32, threads_per_warp: u32, starting_pc: u32, block_idx: u32) -> Self {
         let mut thread_states = vec![];
         for i in 0..threads_per_warp {
+            println!("Created Block {} Thread {}", block_idx,starting_thread_idx + i);
             thread_states.push(ThreadState::new(starting_pc, starting_thread_idx + i, block_idx));
         }
 

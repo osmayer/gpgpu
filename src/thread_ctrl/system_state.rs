@@ -16,6 +16,7 @@ pub struct SystemState {
 
 impl SystemState {
     pub fn new(program_image: &Vec<Segment>, num_blocks: u32,  threads_per_block: u32, threads_per_warp: u32, mem_delay: u32, starting_pc: u32) -> Self {
+        println!("Creating a new system with {} blocks and {} threads per block", num_blocks, threads_per_block);
         let mut new_state = SystemState {
             block_states: vec![],
             memory_state:  MemoryState::new(program_image, num_blocks, threads_per_block, mem_delay),

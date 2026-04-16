@@ -35,7 +35,14 @@ fn main() -> io::Result<()> {
 
     
     let image = program_loader::file_to_image(&obj_file);
-    let mut system_state = thread_ctrl::system_state::SystemState::new(&image, user_args.num_blocks, user_args.num_blocks, user_args.warp_size, user_args.memory_delay, 4194304);
+    let mut system_state = 
+                        thread_ctrl::system_state::SystemState::new(&image, 
+                            user_args.num_blocks, 
+                            user_args.threads_per_block, 
+                            user_args.warp_size, 
+                            user_args.memory_delay, 
+                            4194304
+                        );
 
     let num_blocks = system_state.get_num_blocks();
     let threads_per_block = system_state.get_threads_per_block();

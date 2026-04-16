@@ -1,4 +1,4 @@
-use std::vec;
+use std::{os::unix::thread, vec};
 
 use byteorder::{ByteOrder, LittleEndian};
 use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}, thread_ctrl::{Instr, mem_request::MemRequest}};
@@ -145,12 +145,13 @@ impl MemoryState {
     }
 
     pub fn check_if_ready (&self, thread_idx:u32, block_idx:u32) -> bool {
-        println!("Thread {} Block {}", thread_idx, block_idx);
-        self.memory_requests[block_idx as usize][thread_idx as usize].check_if_ready()
+        let linear_thread_idx = thread_idx - (block_idx * self.threads_per_block);
+        self.memory_requests[block_idx as usize][linear_thread_idx as usize].check_if_ready()
     }
 
     pub fn check_if_valid (&self, thread_idx:u32, block_idx:u32) -> bool {
-        self.memory_requests[block_idx as usize][thread_idx as usize].check_if_valid()
+        let linear_thread_idx = thread_idx - (block_idx * self.threads_per_block);
+        self.memory_requests[block_idx as usize][linear_thread_idx as usize].check_if_valid()
     }
 
     pub fn fetch_instr (&self, curr_pc: u32) -> Option<Instr> {
@@ -177,15 +178,18 @@ impl MemoryState {
     }
 
      pub fn read_request (& mut self, thread_idx:u32, block_idx:u32) {
-        self.memory_requests[block_idx as usize][thread_idx as usize].read_request();
+        let linear_thread_idx = thread_idx - (block_idx * self.threads_per_block);
+        self.memory_requests[block_idx as usize][linear_thread_idx as usize].read_request();
     }
 
     pub fn write_request (& mut self, thread_idx:u32, block_idx:u32) {
-        self.memory_requests[block_idx as usize][thread_idx as usize].write_request();
+        let linear_thread_idx = thread_idx - (block_idx * self.threads_per_block);
+        self.memory_requests[block_idx as usize][linear_thread_idx as usize].write_request();
     }
 
     pub fn reset_request (& mut self, thread_idx:u32, block_idx:u32) {
-        self.memory_requests[block_idx as usize][thread_idx as usize].reset_request();
+        let linear_thread_idx = thread_idx - (block_idx * self.threads_per_block);
+        self.memory_requests[block_idx as usize][linear_thread_idx as usize].reset_request();
     }
 
     pub fn load_32 (& mut self, thread_idx: u32, block_idx: u32, req_addr: u32) -> Option<u32> {
