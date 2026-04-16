@@ -70,7 +70,7 @@ impl fmt::Display for SystemState {
         println!("Printing out the system state!");
         for block in 0..self.get_num_blocks() {
             writeln!(f, "BID: {}", block)?;
-            writeln!(f, "{:?}", self.block_states[block as usize])?;
+            writeln!(f, "{}", self.block_states[block as usize])?;
         }
         // Use the write! macro to define the string representation
         writeln!(f, "Cycles Elapsed {}", self.cycles_elapsed)

@@ -145,6 +145,7 @@ impl MemoryState {
     }
 
     pub fn check_if_ready (&self, thread_idx:u32, block_idx:u32) -> bool {
+        println!("Thread {} Block {}", thread_idx, block_idx);
         self.memory_requests[block_idx as usize][thread_idx as usize].check_if_ready()
     }
 
