@@ -1,8 +1,10 @@
 pub mod system_state;
 pub mod thread_state; 
 pub mod mem_request;
+pub mod block_state;
+pub mod warp_state;
 
-use crate::{instr_execute::Opcode};
+use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}};
 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

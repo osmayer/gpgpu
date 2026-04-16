@@ -2,9 +2,11 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ThreadState {
-    pc:         u32,
-    registers:  [u32; 32],
-    halted:     bool,
+    pc:              u32,
+    thread_id:       u32, 
+    block_id:        u32,
+    registers:       [u32; 32],
+    halted:          bool,
     waiting_for_mem: bool
 }
 
@@ -12,11 +14,13 @@ const INITIAL_SP: u32 = 0x7ff00000;
 const INITIAL_GP: u32 = 0x10000000; 
 
 impl ThreadState {
-    pub fn new(starting_pc: u32) -> Self {
+    pub fn new(starting_pc: u32, thread_id: u32, block_id: u32) -> Self {
         let mut new_state= ThreadState { 
-            pc: starting_pc, 
-            registers: [0; 32],
-            halted: false,
+            pc:              starting_pc, 
+            thread_id:       thread_id,
+            block_id:        block_id,
+            registers:       [0; 32],
+            halted:          false,
             waiting_for_mem: false
         };
         new_state.registers[2] = INITIAL_SP;
@@ -65,10 +69,17 @@ impl ThreadState {
         self.waiting_for_mem = new_val;
     }
 
-    pub fn get_waiting_for_mem(&mut self) -> bool {
+    pub fn get_waiting_for_mem(&self) -> bool {
         self.waiting_for_mem
     }
 
+    pub fn get_thread_id(&self) -> u32 {
+        self.thread_id
+    }
+
+    pub fn get_block_id(&self) -> u32 {
+        self.block_id
+    }
 }
 
 impl fmt::Display for ThreadState {

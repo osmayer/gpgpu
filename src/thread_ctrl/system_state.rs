@@ -1,10 +1,10 @@
 use std::fmt;
 use byteorder::{ByteOrder, LittleEndian};
-use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}, thread_ctrl::{Instr, mem_request::MemRequest, thread_state::ThreadState}}; 
+use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}, thread_ctrl::{Instr, block_state::BlockState, mem_request::MemRequest, thread_state::ThreadState}}; 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SystemState {
-    pub thread_states: Vec<Vec<ThreadState>>,
+    pub block_states: Vec<BlockState>,
     memory_state:  Vec<SectionImage>,
     pub threads_per_block: u32,
     pub num_blocks: u32,
@@ -27,9 +27,9 @@ struct  SectionImage {
 }
 
 impl SystemState {
-    pub fn new(program_image: &Vec<Segment>, threads_per_block: u32, num_blocks: u32, mem_delay: u32) -> Self {
+    pub fn new(program_image: &Vec<Segment>, num_blocks: u32,  threads_per_block: u32, threads_per_warp: u32, mem_delay: u32) -> Self {
         let mut new_state = SystemState {
-            thread_states: vec![],
+            block_states: vec![],
             memory_state:  vec![],
             threads_per_block: threads_per_block,
             num_blocks: num_blocks,
@@ -38,7 +38,7 @@ impl SystemState {
         };
         
         // Make a system state and request array for all threads
-        for _i in 0..(num_blocks) {
+        /* for _i in 0..(num_blocks) {
             let mut curr_vec = vec![];
             let mut requests_vec = vec![];
             for _j in 0..(threads_per_block) {
@@ -47,7 +47,7 @@ impl SystemState {
             }
             new_state.thread_states.push(curr_vec);
             new_state.memory_requests.push(requests_vec);
-        }
+        }*/
 
         // parse memory 
         for section in program_image {
@@ -150,8 +150,7 @@ impl SystemState {
         (None, None)
     }
 
-    pub fn fetch_instr (&self, thread_idx: u32, block_idx: u32) -> (u32, Option<Instr>) {
-        let curr_pc                            = self.thread_states[block_idx as usize][thread_idx as usize].get_pc();
+    pub fn fetch_instr (&self, curr_pc: u32) -> Option<Instr> {
         let mem_loc = self.get_effective_addr(curr_pc, 1, false);
         let seg_idx                  = mem_loc.0;
         let byte_idx                 = mem_loc.1;
@@ -161,53 +160,17 @@ impl SystemState {
                 match &self.memory_state[seg_idx].data {
                     SectionData::Instruction(i) => {
                         let pc_idx = byte_idx / 4;
-                        (curr_pc, Some(i[pc_idx].clone()))
+                        Some(i[pc_idx].clone())
                     },
                     SectionData::Data(_) => {
-                        (curr_pc, None)
+                        None
                     }
                 }
             },
             _ => {
-                (curr_pc, None)
+                None
             }
         }
-    }
-
-    pub fn incr_pc(&mut self, thread_idx: u32, block_idx: u32)  {
-        self.thread_states[block_idx as usize][thread_idx as usize].advance_pc();
-    }
-
-    pub fn update_pc(&mut self, thread_idx: u32, block_idx: u32, new_pc: u32) {
-        self.thread_states[block_idx as usize][thread_idx as usize].set_pc(new_pc);
-    }
-
-    pub fn update_total_cycle_count(&mut self) {
-        self.cycles_elapsed += 1;
-    }
-
-    pub fn halt_thread(&mut self, thread_idx: u32, block_idx: u32) {
-        self.thread_states[block_idx as usize][thread_idx as usize].halt();
-    }
-
-    pub fn is_thread_waiting(&mut self, thread_idx: u32, block_idx: u32) -> bool {
-        self.thread_states[block_idx as usize][thread_idx as usize].get_waiting_for_mem()
-    }
-
-    pub fn set_thread_waiting(&mut self, thread_idx: u32, block_idx: u32, new_val: bool) {
-        self.thread_states[block_idx as usize][thread_idx as usize].set_waiting_for_mem(new_val);
-    }
-
-    pub fn is_thread_halted(&self, thread_idx: u32, block_idx: u32) -> bool {
-        self.thread_states[block_idx as usize][thread_idx as usize].is_halted()
-    }
-
-    pub fn read_thread_register(&self, thread_idx: u32, block_idx: u32, register_idx: u32) -> u32 {
-        self.thread_states[block_idx as usize][thread_idx as usize].read_register(register_idx)
-    }
-
-    pub fn write_thread_register(&mut self, thread_idx: u32, block_idx: u32, register_idx: u32, new_val: u32) {
-        self.thread_states[block_idx as usize][thread_idx as usize].write_register(register_idx, new_val);
     }
 
     pub fn get_num_blocks(&self) -> u32 {
@@ -469,16 +432,28 @@ impl SystemState {
         }
     }
 
+    pub fn is_block_runnable (&self, block_idx: u32) -> Option<&mut BlockState> {
+        if self.block_states[block_idx as usize].check_is_runnable() {
+            Some(&mut self.block_states[block_idx as usize])
+        } else {
+            None
+        }
+    }
 
+    pub fn is_block_halted (&mut self, block_idx: u32) -> bool {
+        self.block_states[block_idx as usize].is_block_halted()
+    }
+
+    pub fn update_total_cycle_count(&mut self) {
+        self.cycles_elapsed += 1; 
+    }
 }
 
 impl fmt::Display for SystemState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for block in 0..self.get_num_blocks() {
-            for thread in 0..self.get_threads_per_block() {
-                writeln!(f, "BID: {} TID: {}", block, thread)?;
-                writeln!(f, "{}", self.thread_states[block as usize][thread as usize])?;
-            }
+            writeln!(f, "BID: {}", block)?;
+            writeln!(f, "{:?}", self.block_states[block as usize])?;
         }
         // Use the write! macro to define the string representation
         writeln!(f, "Cycles Elapsed {}", self.cycles_elapsed)
