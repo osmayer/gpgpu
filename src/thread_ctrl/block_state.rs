@@ -1,6 +1,6 @@
-use core::{num, panic};
+use core::{fmt, num, panic};
 
-use crate::thread_ctrl::warp_state::WarpState;
+use crate::thread_ctrl::{memory_state, warp_state::WarpState};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BlockState {
@@ -41,25 +41,35 @@ impl BlockState {
         true
     }
 
-    pub fn run_block (&self, sys_state: &mut super::system_state::SystemState)  {
+    pub fn run_block (&mut self, mem_state: &mut memory_state::MemoryState)  {
         if !self.check_is_runnable() {
             panic!("Tried to run a block with no runnable warps! ");
         }
 
         for warp in &mut self.warps {
             if warp.check_is_runable() {
-                warp.run_threads(sys_state);
+                warp.run_threads(mem_state);
             }
         }
     }
 
     pub fn is_block_halted(&self) -> bool {
         for warp in &self.warps {
-            if !warp.check_is_runable() {
+            if !warp.is_warp_halted() {
                 return false;
 
             }
         }
         true
     }
+}
+
+impl fmt::Display for BlockState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for warp in &self.warps {
+             writeln!(f, "{}", warp)?;
+        }
+        writeln!(f, "\n")
+    }
+
 }

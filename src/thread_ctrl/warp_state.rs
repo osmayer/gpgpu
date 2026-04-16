@@ -1,6 +1,6 @@
-use core::{num, panic};
+use core::{fmt, num, panic};
 
-use crate::{instr_execute::execute_instr, thread_ctrl::thread_state::ThreadState};
+use crate::{instr_execute::execute_instr, thread_ctrl::{memory_state, thread_state::ThreadState}};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WarpState {
@@ -34,17 +34,18 @@ impl WarpState {
         true
     }
 
-    pub fn run_threads (&mut self, sys_state:&mut super::system_state::SystemState) {
+    pub fn run_threads (&mut self, mem_state: &mut memory_state::MemoryState) {
         if !self.check_is_runable() {
             panic!("Unnable to run warp because not all threads are ready.");
         }
 
         for thread in &mut self.threads {
-            execute_instr(thread, sys_state);
+            execute_instr(thread, mem_state);
         }
     }
 
     pub fn is_warp_halted (&self) -> bool {
+        println!("Polled for halted ");
         for thread in &self.threads {
             if !thread.is_halted() {
                 return false;
@@ -52,4 +53,14 @@ impl WarpState {
         }
         true
     }
+}
+
+impl fmt::Display for WarpState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for thread in &self.threads {
+             writeln!(f, "{}", thread)?;
+        }
+        writeln!(f, "\n")
+    }
+
 }

@@ -49,7 +49,7 @@ pub enum Opcode {
     SwS
 }
 
-fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread: &mut ThreadState, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread: &mut ThreadState, state: &mut thread_ctrl::memory_state::MemoryState) {
     let rs1 = instr.rs1();
     let rs2 = instr.rs2();
     let rs1_data = thread.read_register(rs1) as i32;
@@ -105,7 +105,7 @@ fn execute_r_instr (op: Opcode, instr: riscv_decode::types::RType, thread: &mut 
 }
 
 
-fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread: &mut ThreadState, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread: &mut ThreadState, state: &mut thread_ctrl::memory_state::MemoryState) {
     let rs1 = instr.rs1();
     let imm = ((instr.imm() as i32) << 20) >> 20;
     let rd = instr.rd();
@@ -222,7 +222,7 @@ fn execute_imm_instr (op: Opcode, instr: riscv_decode::types::IType, thread: &mu
     }
 }
 
-fn execute_sb_instr (op: Opcode, instr: riscv_decode::types::BType, thread: &mut ThreadState, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_sb_instr (op: Opcode, instr: riscv_decode::types::BType, thread: &mut ThreadState, state: &mut thread_ctrl::memory_state::MemoryState) {
     let rs1 = instr.rs1();
     let imm = ((instr.imm() as i32) << 20) >> 20;
     let rs2 = instr.rs2();
@@ -279,7 +279,7 @@ fn execute_sb_instr (op: Opcode, instr: riscv_decode::types::BType, thread: &mut
     }
 }
 
-fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread: &mut ThreadState, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread: &mut ThreadState, state: &mut thread_ctrl::memory_state::MemoryState) {
     let rs1 = instr.rs1();
     let rs2 = instr.rs2();
     let imm = ((instr.imm() as i32) << 20) >> 20;
@@ -311,7 +311,7 @@ fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread: &mut 
     }
 }
 
-fn execute_u_instr (op: Opcode, instr: riscv_decode::types::UType, thread: &mut ThreadState, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_u_instr (op: Opcode, instr: riscv_decode::types::UType, thread: &mut ThreadState) {
     let rd = instr.rd();
     let imm = instr.imm();
 
@@ -330,7 +330,7 @@ fn execute_u_instr (op: Opcode, instr: riscv_decode::types::UType, thread: &mut 
     thread.advance_pc();
 }
 
-fn execute_shift_instr (op: Opcode, instr: riscv_decode::types::ShiftType, thread: &mut ThreadState, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_shift_instr (op: Opcode, instr: riscv_decode::types::ShiftType, thread: &mut ThreadState) {
     let rd = instr.rd();
     let rs1 = instr.rs1();
     let imm = instr.shamt() & 0x1F;
@@ -359,7 +359,7 @@ fn execute_shift_instr (op: Opcode, instr: riscv_decode::types::ShiftType, threa
     }
 }
 
-fn execute_uj_instr (op: Opcode, instr: riscv_decode::types::JType, thread: &mut ThreadState, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_uj_instr (op: Opcode, instr: riscv_decode::types::JType, thread: &mut ThreadState) {
     let rd = instr.rd();
     let curr_pc = thread.get_pc();
     let imm = ((instr.imm() as i32) << 12) >> 12;
@@ -376,7 +376,7 @@ fn execute_uj_instr (op: Opcode, instr: riscv_decode::types::JType, thread: &mut
     }
 }
 
-fn execute_custom_instr (instr: Instr, thread: &mut ThreadState, state: &mut thread_ctrl::system_state::SystemState) {
+fn execute_custom_instr (instr: Instr, thread: &mut ThreadState, state: &mut thread_ctrl::memory_state::MemoryState) {
     match instr {
         Instr::Custom {op, rd, ..} => {
             match op {
@@ -406,8 +406,8 @@ fn execute_custom_instr (instr: Instr, thread: &mut ThreadState, state: &mut thr
     thread.advance_pc();
 }
 
-pub fn execute_instr (curr_thread: &mut ThreadState, state: &mut thread_ctrl::system_state::SystemState) {
-    let raw_instr = state.fetch_instr(curr_thread.get_pc());
+pub fn execute_instr (curr_thread: &mut ThreadState, mem_state: &mut thread_ctrl::memory_state::MemoryState) {
+    let raw_instr = mem_state.fetch_instr(curr_thread.get_pc());
     let target_instr; 
     match raw_instr {
         Some(i) => target_instr = i,
@@ -417,118 +417,118 @@ pub fn execute_instr (curr_thread: &mut ThreadState, state: &mut thread_ctrl::sy
         Instr::Standard(op) => {
             match op {
                 riscv_decode::Instruction::Add(add) => {
-                    execute_r_instr(Opcode::Add, add, curr_thread, state);
+                    execute_r_instr(Opcode::Add, add, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Sub(sub) => {
-                    execute_r_instr(Opcode::Sub, sub, curr_thread, state);
+                    execute_r_instr(Opcode::Sub, sub, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Sll(sll) => {
-                    execute_r_instr(Opcode::Sll, sll, curr_thread, state);
+                    execute_r_instr(Opcode::Sll, sll, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Sltu(sltu) => {
-                    execute_r_instr(Opcode::Sltu, sltu, curr_thread, state);
+                    execute_r_instr(Opcode::Sltu, sltu, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::And(and) => {
-                    execute_r_instr(Opcode::And, and, curr_thread, state);
+                    execute_r_instr(Opcode::And, and, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Or(or) => {
-                    execute_r_instr(Opcode::Or, or, curr_thread, state);
+                    execute_r_instr(Opcode::Or, or, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Srl(srl) => {
-                    execute_r_instr(Opcode::Srl, srl, curr_thread, state);
+                    execute_r_instr(Opcode::Srl, srl, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Sra(sra) => {
-                    execute_r_instr(Opcode::Sra, sra, curr_thread, state);
+                    execute_r_instr(Opcode::Sra, sra, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Slt(slt) => {
-                    execute_r_instr(Opcode::Slt, slt, curr_thread, state);
+                    execute_r_instr(Opcode::Slt, slt, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Xor(xor) => {
-                    execute_r_instr(Opcode::Xor, xor, curr_thread, state);
+                    execute_r_instr(Opcode::Xor, xor, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Lw(lw) => {
-                    execute_imm_instr(Opcode::Lw, lw, curr_thread, state);
+                    execute_imm_instr(Opcode::Lw, lw, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Lh(lh) => {
-                    execute_imm_instr(Opcode::Lh, lh, curr_thread, state);
+                    execute_imm_instr(Opcode::Lh, lh, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Lhu(lhu) => {
-                    execute_imm_instr(Opcode::Lhu, lhu, curr_thread, state);
+                    execute_imm_instr(Opcode::Lhu, lhu, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Lb(lb) => {
-                    execute_imm_instr(Opcode::Lb, lb, curr_thread, state);
+                    execute_imm_instr(Opcode::Lb, lb, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Lbu(lbu) => {
-                    execute_imm_instr(Opcode::Lbu, lbu,curr_thread, state);
+                    execute_imm_instr(Opcode::Lbu, lbu,curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Sw(sw) => {
-                    execute_s_instr(Opcode::Sw, sw, curr_thread, state);
+                    execute_s_instr(Opcode::Sw, sw, curr_thread, mem_state);
                 },
                 riscv_decode::Instruction::Ecall => {
                     curr_thread.halt();
                 }
                 riscv_decode::Instruction::Addi(addi) => {
-                    execute_imm_instr(Opcode::Addi, addi, curr_thread, state);
+                    execute_imm_instr(Opcode::Addi, addi, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Ori(ori) => {
-                    execute_imm_instr(Opcode::Ori, ori, curr_thread, state);
+                    execute_imm_instr(Opcode::Ori, ori, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Xori(xori) => {
-                    execute_imm_instr(Opcode::Xori, xori, curr_thread, state);
+                    execute_imm_instr(Opcode::Xori, xori, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Andi(andi) => {
-                    execute_imm_instr(Opcode::Andi, andi, curr_thread, state);
+                    execute_imm_instr(Opcode::Andi, andi, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Slti(slti) => {
-                    execute_imm_instr(Opcode::Slti, slti, curr_thread, state);
+                    execute_imm_instr(Opcode::Slti, slti, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Sltiu(sltiu) => {
-                    execute_imm_instr(Opcode::Sltiu, sltiu, curr_thread, state);
+                    execute_imm_instr(Opcode::Sltiu, sltiu, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Slli(slli) => {
-                    execute_shift_instr(Opcode::Slli, slli, curr_thread, state);
+                    execute_shift_instr(Opcode::Slli, slli, curr_thread);
                 }
                 riscv_decode::Instruction::Srli(srli) => {
-                    execute_shift_instr(Opcode::Srli, srli, curr_thread, state);
+                    execute_shift_instr(Opcode::Srli, srli, curr_thread);
                 }
                 riscv_decode::Instruction::Srai(srai) => {
-                    execute_shift_instr(Opcode::Srai, srai, curr_thread, state);
+                    execute_shift_instr(Opcode::Srai, srai, curr_thread);
                 }
                 riscv_decode::Instruction::Lui(lui) => {
-                    execute_u_instr(Opcode::Lui, lui, curr_thread, state);
+                    execute_u_instr(Opcode::Lui, lui, curr_thread);
                 }
                 riscv_decode::Instruction::Sh(sh) => {
-                    execute_s_instr(Opcode::Sh, sh, curr_thread, state);
+                    execute_s_instr(Opcode::Sh, sh, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Sb(sb) => {
-                    execute_s_instr(Opcode::Sb, sb, curr_thread, state);
+                    execute_s_instr(Opcode::Sb, sb, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Auipc(auipc) => {
-                    execute_u_instr(Opcode::Auipc, auipc, curr_thread, state);
+                    execute_u_instr(Opcode::Auipc, auipc, curr_thread);
                 }
                 riscv_decode::Instruction::Bne(bne) => {
-                    execute_sb_instr(Opcode::Bne, bne, curr_thread, state);
+                    execute_sb_instr(Opcode::Bne, bne, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Beq(beq) => {
-                    execute_sb_instr(Opcode::Beq, beq, curr_thread, state);
+                    execute_sb_instr(Opcode::Beq, beq, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Blt(blt) => {
-                    execute_sb_instr(Opcode::Blt, blt, curr_thread, state);
+                    execute_sb_instr(Opcode::Blt, blt, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Bltu(bltu) => {
-                    execute_sb_instr(Opcode::Bltu, bltu, curr_thread, state);
+                    execute_sb_instr(Opcode::Bltu, bltu, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Bge(bge) => {
-                    execute_sb_instr(Opcode::Bge, bge, curr_thread, state);
+                    execute_sb_instr(Opcode::Bge, bge, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Bgeu(bgeu) => {
-                    execute_sb_instr(Opcode::Bgeu, bgeu, curr_thread, state);
+                    execute_sb_instr(Opcode::Bgeu, bgeu, curr_thread, mem_state);
                 }
                 riscv_decode::Instruction::Jal(jal) => {
-                    execute_uj_instr(Opcode::Jal, jal, curr_thread, state);
+                    execute_uj_instr(Opcode::Jal, jal, curr_thread);
                 }
                 riscv_decode::Instruction::Jalr(jalr) => {
-                    execute_imm_instr(Opcode::Jalr, jalr, curr_thread, state);
+                    execute_imm_instr(Opcode::Jalr, jalr, curr_thread, mem_state);
                 }
                 _ => {
                     panic!("Unimplemented Instruction {:?}!", target_instr);
@@ -538,16 +538,16 @@ pub fn execute_instr (curr_thread: &mut ThreadState, state: &mut thread_ctrl::sy
         Instr::Custom{op, ..} => {
             match op {
                 Opcode::Tid => {
-                    execute_custom_instr(target_instr.clone(), curr_thread, state);
+                    execute_custom_instr(target_instr.clone(), curr_thread, mem_state);
                 }
                 Opcode::Bid => {
-                    execute_custom_instr(target_instr.clone(), curr_thread, state);
+                    execute_custom_instr(target_instr.clone(), curr_thread, mem_state);
                 }
                 Opcode::Gdim => {
-                    execute_custom_instr(target_instr.clone(), curr_thread, state);
+                    execute_custom_instr(target_instr.clone(), curr_thread, mem_state);
                 }
                 Opcode::Bdim => {
-                    execute_custom_instr(target_instr.clone(), curr_thread, state);
+                    execute_custom_instr(target_instr.clone(), curr_thread, mem_state);
                 }
                 _ => {
                     panic!("unimplemented custom instruction")

@@ -20,7 +20,7 @@ struct Parameters {
     #[arg(short, long, default_value_t = 100)]
     memory_delay: u32,
     #[arg(short, long, default_value_t = 1)]
-    threads_per_warp: u32
+    warp_size: u32
 }
 
 
@@ -35,29 +35,17 @@ fn main() -> io::Result<()> {
 
     
     let image = program_loader::file_to_image(&obj_file);
-    let mut system_state = thread_ctrl::system_state::SystemState::new(&image, user_args.num_blocks, user_args.num_blocks, user_args.threads_per_warp, user_args.memory_delay);
+    let mut system_state = thread_ctrl::system_state::SystemState::new(&image, user_args.num_blocks, user_args.num_blocks, user_args.warp_size, user_args.memory_delay, 4194304);
 
     let num_blocks = system_state.get_num_blocks();
     let threads_per_block = system_state.get_threads_per_block();
     
     loop {
         // scheduler does things, decides who's going
-        
+        println!("In the main loop");
         // for loop to run threads that have been decided
         for block_idx in 0..num_blocks {
-            let block = system_state.is_block_runnable(block_idx);
-            let block_data; 
-            match block {
-                Some(b) => {
-                    block_data = b;
-                },
-                None => {
-                    continue;
-                }
-            }
-
-            block_data.run_block(&mut system_state);
-            
+            system_state.run_if_able(block_idx);
         }
 
         // update memory request state
