@@ -1,12 +1,13 @@
 pub mod instr_execute;
 pub mod program_loader;
 pub mod thread_ctrl; 
+pub mod scheduler;
 
 use std::io::{self};
 use std::path::Path;
 use clap::Parser;
 
-use crate::instr_execute::execute_instr;
+use crate::scheduler::select_warp;
 
 
 #[derive(Parser)]
@@ -14,13 +15,13 @@ struct Parameters {
     #[arg(short, long)]
     code_path: String,
     #[arg(short, long, default_value_t = 1)]
-    threads_per_block: u32,
+    threads_per_warp: u32,
     #[arg(short, long, default_value_t = 1)]
     num_blocks: u32,
     #[arg(short, long, default_value_t = 100)]
     memory_delay: u32,
     #[arg(short, long, default_value_t = 1)]
-    warp_size: u32
+    warps_per_block: u32
 }
 
 
@@ -38,27 +39,32 @@ fn main() -> io::Result<()> {
     let mut system_state = 
                         thread_ctrl::system_state::SystemState::new(&image, 
                             user_args.num_blocks, 
-                            user_args.threads_per_block, 
-                            user_args.warp_size, 
+                            user_args.threads_per_warp, 
+                            user_args.warps_per_block, 
                             user_args.memory_delay, 
                             4194304
                         );
 
-    let num_blocks = system_state.get_num_blocks();
-    let threads_per_block = system_state.get_threads_per_block();
+    let num_blocks = user_args.num_blocks;
+    let threads_per_warp = user_args.threads_per_warp;
+    let warps_per_block = user_args.warps_per_block;
     
     loop {
         // scheduler does things, decides who's going
-        println!("In the main loop");
-        // for loop to run threads that have been decided
-        for block_idx in 0..num_blocks {
-            system_state.run_if_able(block_idx);
+        let (block, warp) = select_warp(& system_state);
+
+        // for loop to run warps that have been decided
+        match block {
+            Some (b) => {system_state.run_warp(b, warp); println!("{}, {}", b, warp);}
+            None => {}
         }
 
         // update memory request state
         for block in 0..num_blocks {
-            for thread in 0..threads_per_block {
-                system_state.incr_cycles(thread, block);
+            for warp in 0..warps_per_block {
+                for thread in 0..threads_per_warp {
+                system_state.incr_cycles(thread, warp, block);
+                }
             }
         }
 

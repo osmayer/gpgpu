@@ -5,6 +5,7 @@ pub struct ThreadState {
     pc:              u32,
     thread_id:       u32, 
     block_id:        u32,
+    warp_id:         u32,
     registers:       [u32; 32],
     halted:          bool,
     waiting_for_mem: bool
@@ -14,12 +15,13 @@ const INITIAL_SP: u32 = 0x7ff00000;
 const INITIAL_GP: u32 = 0x10000000; 
 
 impl ThreadState {
-    pub fn new(starting_pc: u32, thread_id: u32, block_id: u32) -> Self {
+    pub fn new(starting_pc: u32, thread_id: u32, warp_id:u32, block_id: u32) -> Self {
         println!("Creating new thread with idx: {}", thread_id);
         let mut new_state= ThreadState { 
             pc:              starting_pc, 
             thread_id:       thread_id,
             block_id:        block_id,
+            warp_id:         warp_id,
             registers:       [0; 32],
             halted:          false,
             waiting_for_mem: false
@@ -80,6 +82,10 @@ impl ThreadState {
 
     pub fn get_block_id(&self) -> u32 {
         self.block_id
+    }
+
+    pub fn get_warp_id(&self) -> u32 {
+        self.warp_id
     }
 }
 

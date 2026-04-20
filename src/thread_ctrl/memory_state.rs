@@ -1,4 +1,3 @@
-use std::{os::unix::thread, vec};
 
 use byteorder::{ByteOrder, LittleEndian};
 use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}, thread_ctrl::{Instr, mem_request::MemRequest}};
@@ -6,8 +5,9 @@ use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetada
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MemoryState {
     memory_state:  Vec<SectionImage>,
-    pub memory_requests: Vec<Vec<MemRequest>>,
-    pub threads_per_block: u32,
+    pub memory_requests: Vec<Vec<Vec<MemRequest>>>,
+    pub threads_per_warp: u32,
+    pub warps_per_block: u32,
     pub num_blocks: u32
 }
 
@@ -26,19 +26,24 @@ struct  SectionImage {
 }
 
 impl MemoryState {
-    pub fn new (program_image: &Vec<Segment>, num_blocks: u32,  threads_per_block: u32, mem_delay: u32) -> Self {
+    pub fn new (program_image: &Vec<Segment>, num_blocks: u32,  warps_per_block: u32, threads_per_warp: u32, mem_delay: u32) -> Self {
 
         let mut new_state = MemoryState { 
             memory_state: vec![], 
             memory_requests: vec![],
             num_blocks,
-            threads_per_block 
+            threads_per_warp,
+            warps_per_block
         };
         // Make a system state and request array for all threads
         for _i in 0..(num_blocks) {
             let mut requests_vec = vec![];
-            for _j in 0..(threads_per_block) {
-                requests_vec.push(MemRequest::new(mem_delay));
+            for _j in 0..(warps_per_block) {
+                let mut warp_requests_vec = vec![];
+                for _k in 0..threads_per_warp {
+                    warp_requests_vec.push(MemRequest::new(mem_delay));
+                }
+                requests_vec.push(warp_requests_vec);
             }
             new_state.memory_requests.push(requests_vec);
         }
@@ -144,14 +149,12 @@ impl MemoryState {
         (None, None)
     }
 
-    pub fn check_if_ready (&self, thread_idx:u32, block_idx:u32) -> bool {
-        let linear_thread_idx = thread_idx - (block_idx * self.threads_per_block);
-        self.memory_requests[block_idx as usize][linear_thread_idx as usize].check_if_ready()
+    pub fn check_if_ready (&self, thread_idx:u32, warp_idx:u32, block_idx:u32) -> bool {
+        self.memory_requests[block_idx as usize][warp_idx as usize][thread_idx as usize].check_if_ready()
     }
 
-    pub fn check_if_valid (&self, thread_idx:u32, block_idx:u32) -> bool {
-        let linear_thread_idx = thread_idx - (block_idx * self.threads_per_block);
-        self.memory_requests[block_idx as usize][linear_thread_idx as usize].check_if_valid()
+    pub fn check_if_valid (&self, thread_idx:u32, warp_idx:u32, block_idx:u32) -> bool {
+        self.memory_requests[block_idx as usize][warp_idx as usize][thread_idx as usize].check_if_valid()
     }
 
     pub fn fetch_instr (&self, curr_pc: u32) -> Option<Instr> {
@@ -177,32 +180,29 @@ impl MemoryState {
         }
     }
 
-     pub fn read_request (& mut self, thread_idx:u32, block_idx:u32) {
-        let linear_thread_idx = thread_idx - (block_idx * self.threads_per_block);
-        self.memory_requests[block_idx as usize][linear_thread_idx as usize].read_request();
+     pub fn read_request (& mut self, thread_idx:u32, warp_idx:u32, block_idx:u32) {
+        self.memory_requests[block_idx as usize][warp_idx as usize][thread_idx as usize].read_request();
     }
 
-    pub fn write_request (& mut self, thread_idx:u32, block_idx:u32) {
-        let linear_thread_idx = thread_idx - (block_idx * self.threads_per_block);
-        self.memory_requests[block_idx as usize][linear_thread_idx as usize].write_request();
+    pub fn write_request (& mut self, thread_idx:u32, warp_idx:u32, block_idx:u32) {
+        self.memory_requests[block_idx as usize][warp_idx as usize][thread_idx as usize].write_request();
     }
 
-    pub fn reset_request (& mut self, thread_idx:u32, block_idx:u32) {
-        let linear_thread_idx = thread_idx - (block_idx * self.threads_per_block);
-        self.memory_requests[block_idx as usize][linear_thread_idx as usize].reset_request();
+    pub fn reset_request (& mut self, thread_idx:u32, warp_idx:u32, block_idx:u32) {
+        self.memory_requests[block_idx as usize][warp_idx as usize][thread_idx as usize].reset_request();
     }
 
-    pub fn load_32 (& mut self, thread_idx: u32, block_idx: u32, req_addr: u32) -> Option<u32> {
-        let ready = self.check_if_ready(thread_idx, block_idx);
-        let valid = self.check_if_valid(thread_idx, block_idx);
+    pub fn load_32 (& mut self, thread_idx: u32, warp_idx:u32, block_idx: u32, req_addr: u32) -> Option<u32> {
+        let ready = self.check_if_ready(thread_idx, warp_idx, block_idx);
+        let valid = self.check_if_valid(thread_idx, warp_idx, block_idx);
         if !valid {
-            self.read_request(thread_idx, block_idx);
+            self.read_request(thread_idx, warp_idx, block_idx);
             None
         }
         else if !ready {
             None
         } else {
-            self.reset_request(thread_idx, block_idx);
+            self.reset_request(thread_idx, warp_idx, block_idx);
             let (segment, ea) = self.get_effective_addr(req_addr, 4, false); 
             match (segment, ea) {
                 (Some(s), Some(a)) => {
@@ -222,17 +222,17 @@ impl MemoryState {
         }
     }
 
-    pub fn load_16 (& mut self, thread_idx: u32, block_idx: u32, req_addr: u32) -> Option<u16> {
-        let ready = self.check_if_ready(thread_idx, block_idx);
-        let valid = self.check_if_valid(thread_idx, block_idx);
+    pub fn load_16 (& mut self, thread_idx: u32, warp_idx:u32, block_idx: u32, req_addr: u32) -> Option<u16> {
+        let ready = self.check_if_ready(thread_idx, warp_idx, block_idx);
+        let valid = self.check_if_valid(thread_idx, warp_idx, block_idx);
         if !valid {
-            self.read_request(thread_idx, block_idx);
+            self.read_request(thread_idx, warp_idx, block_idx);
             None
         }
         else if !ready {
             None
         } else {
-            self.reset_request(thread_idx, block_idx);
+            self.reset_request(thread_idx, warp_idx, block_idx);
             let (segment, ea) = self.get_effective_addr(req_addr, 4, false); 
             match (segment, ea) {
                 (Some(s), Some(a)) => {
@@ -252,17 +252,17 @@ impl MemoryState {
         }
     }
 
-    pub fn load_8 (& mut self, thread_idx: u32, block_idx: u32, req_addr: u32) -> Option<u8> {
-        let ready = self.check_if_ready(thread_idx, block_idx);
-        let valid = self.check_if_valid(thread_idx, block_idx);
+    pub fn load_8 (& mut self, thread_idx: u32, warp_idx:u32, block_idx: u32, req_addr: u32) -> Option<u8> {
+        let ready = self.check_if_ready(thread_idx, warp_idx, block_idx);
+        let valid = self.check_if_valid(thread_idx, warp_idx, block_idx);
         if !valid {
-            self.read_request(thread_idx, block_idx);
+            self.read_request(thread_idx, warp_idx, block_idx);
             None
         }
         else if !ready {
             None
         } else {
-            self.reset_request(thread_idx, block_idx);
+            self.reset_request(thread_idx, warp_idx, block_idx);
             let (segment, ea) = self.get_effective_addr(req_addr, 1, false); 
             match (segment, ea) {
                 (Some(s), Some(a)) => {
@@ -282,17 +282,17 @@ impl MemoryState {
         }
     }
 
-    pub fn store_32 (&mut self, thread_idx: u32, block_idx: u32, req_addr: u32, new_val: u32) -> bool {
-        let ready = self.check_if_ready(thread_idx, block_idx);
-        let valid = self.check_if_valid(thread_idx, block_idx);
+    pub fn store_32 (&mut self, thread_idx: u32, warp_idx:u32, block_idx: u32, req_addr: u32, new_val: u32) -> bool {
+        let ready = self.check_if_ready(thread_idx, warp_idx, block_idx);
+        let valid = self.check_if_valid(thread_idx, warp_idx, block_idx);
         if !valid {
-            self.write_request(thread_idx, block_idx);
+            self.write_request(thread_idx, warp_idx, block_idx);
             false
         }
         else if !ready {
             false
         } else {
-            self.reset_request(thread_idx, block_idx);
+            self.reset_request(thread_idx, warp_idx, block_idx);
             let (segment, ea) = self.get_effective_addr(req_addr, 4, true); 
             let mut did_resize = false; 
             let mut new_len = 0; 
@@ -328,17 +328,17 @@ impl MemoryState {
         }
     }
 
-     pub fn store_16 (&mut self, thread_idx: u32, block_idx: u32, req_addr: u32, new_val: u16) -> bool {
-        let ready = self.check_if_ready(thread_idx, block_idx);
-        let valid = self.check_if_valid(thread_idx, block_idx);
+     pub fn store_16 (&mut self, thread_idx: u32, warp_idx:u32, block_idx: u32, req_addr: u32, new_val: u16) -> bool {
+        let ready = self.check_if_ready(thread_idx, warp_idx, block_idx);
+        let valid = self.check_if_valid(thread_idx, warp_idx, block_idx);
         if !valid {
-            self.write_request(thread_idx, block_idx);
+            self.write_request(thread_idx, warp_idx, block_idx);
             false
         }
         else if !ready {
             false
         } else {
-            self.reset_request(thread_idx, block_idx);
+            self.reset_request(thread_idx, warp_idx, block_idx);
             let (segment, ea) = self.get_effective_addr(req_addr, 2,true); 
             let mut did_resize = false; 
             let mut new_len = 0; 
@@ -373,17 +373,17 @@ impl MemoryState {
         }
     }
 
-     pub fn store_8 (&mut self, thread_idx: u32, block_idx: u32, req_addr: u32, new_val: u8) -> bool {
-        let ready = self.check_if_ready(thread_idx, block_idx);
-        let valid = self.check_if_valid(thread_idx, block_idx);
+     pub fn store_8 (&mut self, thread_idx: u32, warp_idx:u32, block_idx: u32, req_addr: u32, new_val: u8) -> bool {
+        let ready = self.check_if_ready(thread_idx, warp_idx, block_idx);
+        let valid = self.check_if_valid(thread_idx, warp_idx, block_idx);
         if !valid {
-            self.write_request(thread_idx, block_idx);
+            self.write_request(thread_idx, warp_idx, block_idx);
             false
         }
         else if !ready {
             false
         } else {
-            self.reset_request(thread_idx, block_idx);
+            self.reset_request(thread_idx, warp_idx, block_idx);
             let (segment, ea) = self.get_effective_addr(req_addr, 1, true); 
             let mut did_resize = false; 
             let mut new_len = 0; 
@@ -420,14 +420,14 @@ impl MemoryState {
     }
 
     pub fn get_threads_per_block(&self) -> u32 {
-        self.threads_per_block
+        self.threads_per_warp * self.warps_per_block
     }
 
     pub fn get_num_blocks(&self) -> u32 {
         self.num_blocks
     }
 
-    pub fn incr_cycles (& mut self, thread_idx:u32, block_idx:u32) {
-        self.memory_requests[block_idx as usize][thread_idx as usize].incr_cycles();
+    pub fn incr_cycles (& mut self, thread_idx:u32, warp_idx:u32, block_idx:u32) {
+        self.memory_requests[block_idx as usize][warp_idx as usize][thread_idx as usize].incr_cycles();
     }
 }

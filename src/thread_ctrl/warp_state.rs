@@ -1,4 +1,4 @@
-use core::{fmt, num, panic};
+use core::{fmt, panic};
 
 use crate::{instr_execute::execute_instr, thread_ctrl::{memory_state, thread_state::ThreadState}};
 
@@ -7,28 +7,28 @@ pub struct WarpState {
     warp_idx:     u32,
     num_threads:  u32, 
     /// is_runnable:  bool,
-    threads:      Box<[ThreadState]>
+    threads:      Vec<ThreadState>
 }
 
 
 impl WarpState {
-    pub fn new(warp_idx: u32, starting_thread_idx: u32, threads_per_block: u32, threads_per_warp: u32, starting_pc: u32, block_idx: u32) -> Self {
+    pub fn new(starting_pc: u32, threads_per_warp: u32,  block_idx: u32, warp_idx:u32) -> Self {
         let mut thread_states = vec![];
         for i in 0..threads_per_warp {
-            println!("Created Block {} Thread {}", block_idx,starting_thread_idx + i);
-            thread_states.push(ThreadState::new(starting_pc, starting_thread_idx + i, block_idx));
+            println!("Created Block {} Warp {} Thread {}", block_idx, warp_idx, i);
+            thread_states.push(ThreadState::new(starting_pc, i, warp_idx, block_idx));
         }
 
         WarpState { 
-            warp_idx, 
+            warp_idx: warp_idx, 
             num_threads: threads_per_warp, 
-            threads:     thread_states.into_boxed_slice()
+            threads:     thread_states
         }
     }
 
-    pub fn check_is_runable (&self) -> bool {
+    pub fn check_is_runnable (&self) -> bool {
         for thread in &self.threads {
-            if thread.get_waiting_for_mem() {
+            if thread.get_waiting_for_mem() | thread.is_halted() {
                 return false;
             }
         }
@@ -36,8 +36,8 @@ impl WarpState {
     }
 
     pub fn run_threads (&mut self, mem_state: &mut memory_state::MemoryState) {
-        if !self.check_is_runable() {
-            panic!("Unnable to run warp because not all threads are ready.");
+        if !self.check_is_runnable() {
+            panic!("Unable to run warp because not all threads are ready.");
         }
 
         for thread in &mut self.threads {
@@ -45,8 +45,11 @@ impl WarpState {
         }
     }
 
+    pub fn set_waiting_for_mem (& mut self, thread_idx:u32, new_val: bool) {
+        self.threads[thread_idx as usize].set_waiting_for_mem(new_val);
+    }
+
     pub fn is_warp_halted (&self) -> bool {
-        println!("Polled for halted ");
         for thread in &self.threads {
             if !thread.is_halted() {
                 return false;
@@ -58,10 +61,10 @@ impl WarpState {
 
 impl fmt::Display for WarpState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for thread in &self.threads {
-             writeln!(f, "{}", thread)?;
+        for thread_idx in 0..self.num_threads {
+            writeln!(f, "TID: {}", thread_idx)?;
+            writeln!(f, "{}", self.threads[thread_idx as usize])?;
         }
         writeln!(f, "\n")
     }
-
 }

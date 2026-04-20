@@ -1,33 +1,31 @@
-use core::num;
 use std::fmt;
-use byteorder::{ByteOrder, LittleEndian};
-use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}, thread_ctrl::{Instr, block_state::BlockState, mem_request::MemRequest, memory_state::MemoryState, thread_state::ThreadState}}; 
+use crate::{program_loader::{Segment}, thread_ctrl::{block_state::BlockState, memory_state::MemoryState}}; 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SystemState {
     pub block_states: Vec<BlockState>,
     memory_state:  MemoryState,
-    pub threads_per_block: u32,
+    pub threads_per_warp: u32,
+    pub warps_per_block: u32,
     pub num_blocks: u32,
-    pub memory_requests: Vec<Vec<MemRequest>>,
     pub cycles_elapsed: u32
 }
 
 
 impl SystemState {
-    pub fn new(program_image: &Vec<Segment>, num_blocks: u32,  threads_per_block: u32, threads_per_warp: u32, mem_delay: u32, starting_pc: u32) -> Self {
-        println!("Creating a new system with {} blocks and {} threads per block", num_blocks, threads_per_block);
+    pub fn new(program_image: &Vec<Segment>, num_blocks: u32,  threads_per_warp: u32, warps_per_block: u32, mem_delay: u32, starting_pc: u32) -> Self {
+        println!("Creating a new system with {} blocks, {} warps per block and {} threads_per_warp", num_blocks, warps_per_block, threads_per_warp);
         let mut new_state = SystemState {
             block_states: vec![],
-            memory_state:  MemoryState::new(program_image, num_blocks, threads_per_block, mem_delay),
-            threads_per_block: threads_per_block,
+            memory_state:  MemoryState::new(program_image, num_blocks, warps_per_block, threads_per_warp, mem_delay),
+            warps_per_block: warps_per_block,
+            threads_per_warp: threads_per_warp,
             num_blocks: num_blocks,
-            memory_requests: vec![], 
             cycles_elapsed: 0
         };
 
         for i in 0..num_blocks {
-            new_state.block_states.push(BlockState::new(i, threads_per_block, threads_per_warp, starting_pc));
+            new_state.block_states.push(BlockState::new(i, warps_per_block, threads_per_warp, starting_pc));
         }
 
         println!("{:?}", new_state.memory_state);
@@ -39,24 +37,38 @@ impl SystemState {
         self.num_blocks
     }
 
+    pub fn get_threads_per_warp(&self) -> u32 {
+        self.threads_per_warp
+    }
+
+    pub fn get_warps_per_block(&self) -> u32 {
+        self.warps_per_block
+    }
+
     pub fn get_threads_per_block (&self) -> u32 {
-        self.threads_per_block
+        self.threads_per_warp * self.warps_per_block
     }
 
-    pub fn incr_cycles (& mut self, thread_idx:u32, block_idx:u32) {
-        self.memory_state.incr_cycles(thread_idx, block_idx);
+    pub fn set_waiting_for_mem (&mut self, thread_idx:u32, warp_idx:u32, block_idx:u32, new_val:bool) {
+        self.block_states[block_idx as usize].set_waiting_for_mem(warp_idx, thread_idx, new_val);
     }
 
-    pub fn run_if_able (&mut self, block_idx: u32) -> bool {
-        if self.block_states[block_idx as usize].check_is_runnable() {
-            self.block_states[block_idx as usize].run_block(&mut self.memory_state);
-            return true;
+    pub fn incr_cycles (& mut self, thread_idx:u32, warp_idx:u32, block_idx:u32) {
+        self.memory_state.incr_cycles(thread_idx, warp_idx, block_idx);
+        if self.memory_state.check_if_ready(thread_idx, warp_idx, block_idx) {
+            self.set_waiting_for_mem(thread_idx, warp_idx, block_idx, false);
         }
-        false
+    }
+
+    pub fn run_warp (& mut self, block_idx: u32, warp_idx: u32) {
+        self.block_states[block_idx as usize].run_warp(warp_idx, &mut self.memory_state);
+    }
+
+    pub fn get_runnable_warps (&self, block_idx: u32) -> (Vec<u32>, u32) {
+        self.block_states[block_idx as usize].get_runnable_warps()
     }
 
     pub fn is_block_halted (&mut self, block_idx: u32) -> bool {
-        println!("Block {} is halted {}", block_idx, self.block_states[block_idx as usize].is_block_halted());
         self.block_states[block_idx as usize].is_block_halted()
     }
 

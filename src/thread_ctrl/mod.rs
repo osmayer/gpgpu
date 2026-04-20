@@ -5,7 +5,7 @@ pub mod block_state;
 pub mod warp_state;
 pub mod memory_state;
 
-use crate::{instr_execute::Opcode, program_loader::{self, Segment, SegmentMetadata}};
+use crate::{instr_execute::Opcode};
 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
