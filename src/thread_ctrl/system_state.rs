@@ -50,7 +50,7 @@ impl SystemState {
     }
 
     pub fn set_waiting_for_mem (&mut self, thread_idx:u32, warp_idx:u32, block_idx:u32, new_val:bool) {
-        self.block_states[block_idx as usize].set_waiting_for_mem(warp_idx, thread_idx, new_val);
+        self.block_states[block_idx as usize].set_waiting_for_mem(thread_idx, warp_idx, new_val);
     }
 
     pub fn incr_cycles (& mut self, thread_idx:u32, warp_idx:u32, block_idx:u32) {

@@ -11,19 +11,18 @@ pub struct BlockState {
 
 
 impl BlockState {
-    pub fn new(block_idx: u32, warps_per_thread: u32, threads_per_warp: u32, starting_pc: u32) -> Self {
-        let num_warps= warps_per_thread;
+    pub fn new(block_idx: u32, warps_per_block: u32, threads_per_warp: u32, starting_pc: u32) -> Self {
+        let num_warps= warps_per_block;
 
         let mut warps = vec![];
         for i in 0..num_warps {
-            let warp_idx = i; 
-            warps.push(WarpState::new(starting_pc, threads_per_warp, block_idx, warp_idx));
+            warps.push(WarpState::new(starting_pc, threads_per_warp, block_idx, i));
         }
 
         BlockState { 
             warps: warps,
             num_warps: num_warps, 
-            num_threads: num_warps * threads_per_warp, 
+            num_threads: num_warps * threads_per_warp
         }
     }
 
