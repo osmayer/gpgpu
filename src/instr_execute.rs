@@ -312,6 +312,8 @@ fn execute_s_instr (op: Opcode, instr: riscv_decode::types::SType, thread: &mut 
     }
     if success {
         thread.advance_pc();
+    } else {
+        thread.set_waiting_for_mem(true);
     }
 }
 
