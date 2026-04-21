@@ -4,6 +4,7 @@ pub mod mem_request;
 pub mod block_state;
 pub mod warp_state;
 pub mod memory_state;
+pub mod scheduler_state;
 
 use crate::{instr_execute::Opcode};
 

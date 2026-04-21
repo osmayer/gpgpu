@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::{program_loader::{Segment}, thread_ctrl::{block_state::BlockState, memory_state::MemoryState}}; 
+use crate::{program_loader::{Segment}, thread_ctrl::{block_state::BlockState, memory_state::MemoryState, scheduler_state::{SchedulerState, SchedulerData}}}; 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SystemState {
@@ -8,12 +8,13 @@ pub struct SystemState {
     pub threads_per_warp: u32,
     pub warps_per_block: u32,
     pub num_blocks: u32,
-    pub cycles_elapsed: u32
+    pub cycles_elapsed: u32,
+    pub scheduler: SchedulerState
 }
 
 
 impl SystemState {
-    pub fn new(program_image: &Vec<Segment>, num_blocks: u32,  threads_per_warp: u32, warps_per_block: u32, mem_delay: u32, starting_pc: u32) -> Self {
+    pub fn new(program_image: &Vec<Segment>, num_blocks: u32,  threads_per_warp: u32, warps_per_block: u32, mem_delay: u32, starting_pc: u32, scheduler: u32) -> Self {
         println!("Creating a new system with {} blocks, {} warps per block and {} threads_per_warp", num_blocks, warps_per_block, threads_per_warp);
         let mut new_state = SystemState {
             block_states: vec![],
@@ -21,7 +22,8 @@ impl SystemState {
             warps_per_block: warps_per_block,
             threads_per_warp: threads_per_warp,
             num_blocks: num_blocks,
-            cycles_elapsed: 0
+            cycles_elapsed: 0,
+            scheduler: SchedulerState::new(scheduler)
         };
 
         for i in 0..num_blocks {
@@ -68,12 +70,24 @@ impl SystemState {
         self.block_states[block_idx as usize].get_runnable_warps()
     }
 
+    pub fn is_warp_runnable (&self, block_idx: u32, warp_idx:u32) -> bool {
+        self.block_states[block_idx as usize].is_warp_runnable(warp_idx)
+    }
+
     pub fn is_block_halted (&mut self, block_idx: u32) -> bool {
         self.block_states[block_idx as usize].is_block_halted()
     }
 
     pub fn update_total_cycle_count(&mut self) {
         self.cycles_elapsed += 1; 
+    }
+
+    pub fn set_scheduler_data (& mut self, data: SchedulerData) {
+        self.scheduler.set_scheduler_data(data);
+    }
+
+    pub fn get_scheduler_data (&self) -> SchedulerData {
+        self.scheduler.get_scheduler_data()
     }
 }
 

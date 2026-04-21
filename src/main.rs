@@ -21,7 +21,11 @@ struct Parameters {
     #[arg(short, long, default_value_t = 100)]
     memory_delay: u32,
     #[arg(short, long, default_value_t = 1)]
-    warps_per_block: u32
+    warps_per_block: u32,
+    #[arg(short, long, default_value_t = 1)]
+    functional_units: u32,
+    #[arg(short, long, default_value_t = 0)]
+    scheduler: u32
 }
 
 
@@ -42,7 +46,8 @@ fn main() -> io::Result<()> {
                             user_args.threads_per_warp, 
                             user_args.warps_per_block, 
                             user_args.memory_delay, 
-                            4194304
+                            4194304,
+                            user_args.scheduler
                         );
 
     let num_blocks = user_args.num_blocks;
@@ -51,7 +56,7 @@ fn main() -> io::Result<()> {
     
     loop {
         // scheduler does things, decides who's going
-        let (block, warp) = select_warp(& system_state);
+        let (block, warp) = select_warp(& mut system_state);
 
         // for loop to run warps that have been decided
         match block {
@@ -63,7 +68,7 @@ fn main() -> io::Result<()> {
         for block in 0..num_blocks {
             for warp in 0..warps_per_block {
                 for thread in 0..threads_per_warp {
-                system_state.incr_cycles(thread, warp, block);
+                    system_state.incr_cycles(thread, warp, block);
                 }
             }
         }

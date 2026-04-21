@@ -35,6 +35,10 @@ impl BlockState {
         true
     }
 
+    pub fn is_warp_runnable (&self, warp_idx:u32) -> bool {
+        self.warps[warp_idx as usize].check_is_runnable()
+    }
+
     pub fn get_runnable_warps (&self) -> (Vec<u32>, u32) {
         let mut warp_list = vec![];
         let mut size = 0;
