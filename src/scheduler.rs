@@ -1,9 +1,9 @@
 use core::panic;
-use crate::thread_ctrl::{system_state::SystemState, scheduler_state:: {SchedulerType, SchedulerData}};
+use crate::thread_ctrl::{system_state::SystemState, scheduler_state:: {SchedulerData}};
 
 
 
-pub fn select_warp (state: & mut SystemState) -> (Option<u32>, u32) {
+pub fn select_warp (state: & mut SystemState) -> Option<(u32, u32)> {
     let data = state.get_scheduler_data();
     match data {
         SchedulerData::RoundRobin {curr_block, curr_warp, ..} => {
@@ -21,20 +21,20 @@ pub fn select_warp (state: & mut SystemState) -> (Option<u32>, u32) {
                 if state.is_warp_runnable(block_idx, warp_idx) {
                     let new_data = SchedulerData::RoundRobin{curr_warp: warp_idx, curr_block: block_idx};
                     state.set_scheduler_data(new_data);
-                    return (Some(block_idx), warp_idx);
+                    return Some((block_idx, warp_idx));
                 }
             }
-            (None, 0)
+            None
            
         }
         SchedulerData::Chaos => {
             for block in 0..state.num_blocks {
                 let (warps, size) = state.get_runnable_warps(block);
                 if size != 0 {
-                    return (Some(block), warps[0]);
+                    return Some((block, warps[0]));
                 }
             }
-            (None, 0)
+            None
         }
     }
 }
