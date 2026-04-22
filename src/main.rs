@@ -61,7 +61,7 @@ fn main() -> io::Result<()> {
         // for loop to run warps that have been decided
         match data {
             Some ((b, w)) => {system_state.run_warp(b, w); println!("{}, {}", b, w);}
-            None => {}
+            None => {println!("noone gets anything")}
         }
 
         // update memory request state

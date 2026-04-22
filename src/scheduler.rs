@@ -21,11 +21,10 @@ pub fn select_warp (state: & mut SystemState) -> Option<(u32, u32)> {
                 if state.is_warp_runnable(block_idx, warp_idx) {
                     let new_data = SchedulerData::RoundRobin{curr_warp: warp_idx, curr_block: block_idx};
                     state.set_scheduler_data(new_data);
-                    return Some((block_idx, warp_idx));
+                    return Some((curr_block, curr_warp));
                 }
             }
             None
-           
         }
         SchedulerData::Chaos => {
             for block in 0..state.num_blocks {
