@@ -6,23 +6,26 @@ use crate::{instr_execute::execute_instr, thread_ctrl::{memory_state, thread_sta
 pub struct WarpState {
     warp_idx:     u32,
     num_threads:  u32, 
-    /// is_runnable:  bool,
-    threads:      Vec<ThreadState>
+    threads:      Vec<ThreadState>,
+    run_status:   Vec<bool> 
 }
 
 
 impl WarpState {
     pub fn new(starting_pc: u32, threads_per_warp: u32,  block_idx: u32, warp_idx:u32) -> Self {
         let mut thread_states = vec![];
+        
         for i in 0..threads_per_warp {
             println!("Created Block {} Warp {} Thread {}", block_idx, warp_idx, i);
             thread_states.push(ThreadState::new(starting_pc, i, warp_idx, block_idx));
         }
-
+        let run_status = vec![ false; thread_states.len() ];
+        
         WarpState { 
-            warp_idx: warp_idx, 
+            warp_idx:    warp_idx, 
             num_threads: threads_per_warp, 
-            threads:     thread_states
+            threads:     thread_states,
+            run_status:  run_status
         }
     }
 
@@ -40,8 +43,34 @@ impl WarpState {
             panic!("Unable to run warp because not all threads are ready.");
         }
 
-        for thread in &mut self.threads {
-            execute_instr(thread, mem_state);
+        // for thread in &mut self.threads {
+        //    execute_instr(thread, mem_state);
+        // }
+        let mut first_pc = 0; 
+        for i in 0..self.num_threads {
+            if !self.run_status[i as usize] {
+                first_pc = self.threads[i as usize].get_pc();
+            }
+        }
+
+        for i in 0..self.num_threads {
+            if self.threads[i as usize].get_pc() == first_pc {
+                execute_instr(&mut self.threads[i as usize], mem_state);
+                self.run_status[i as usize] = true; 
+            }
+        }
+
+        let mut is_done = true;
+        for i in 0..self.num_threads {
+            if !self.run_status[i as usize] {
+                is_done = false; 
+            }
+        }
+
+        if is_done {
+            for i in 0..self.num_threads {
+                self.run_status[i as usize] = false;
+            }
         }
     }
 
