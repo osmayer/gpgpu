@@ -56,12 +56,12 @@ fn main() -> io::Result<()> {
     
     loop {
         // scheduler does things, decides who's going
-        let (block, warp) = select_warp(& mut system_state);
+        let data = select_warp(& mut system_state);
 
         // for loop to run warps that have been decided
-        match block {
-            Some (b) => {system_state.run_warp(b, warp); println!("{}, {}", b, warp);}
-            None => {}
+        match data {
+            Some ((b, w)) => {system_state.run_warp(b, w); println!("{}, {}", b, w);}
+            None => {println!("noone gets anything")}
         }
 
         // update memory request state
