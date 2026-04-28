@@ -31,7 +31,6 @@ impl SystemState {
             new_state.block_states.push(BlockState::new(i, warps_per_block, threads_per_warp, starting_pc));
         }
 
-        // println!("{:?}", new_state.memory_state);
         new_state
     }
 

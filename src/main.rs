@@ -66,11 +66,9 @@ fn main() -> io::Result<()> {
                     let block = set[i as usize].0;
                     let warp = set[i as usize].1;
                     system_state.run_warp(block, warp); 
-                    //println!("{}, {}", block, warp);
                 }
             }
             None => {
-                // println!("No warps this cycle")
             }
         }
 
@@ -88,7 +86,7 @@ fn main() -> io::Result<()> {
         for block in 0..num_blocks {
             if !system_state.is_block_halted(block) {
                 halted = false;
-            }
+            } 
         }
 
         system_state.update_total_cycle_count();
@@ -96,9 +94,6 @@ fn main() -> io::Result<()> {
         if halted {
             break;
         }
-
-        // println!("Per Cycle Register Trace:");
-        // println!("{}", system_state.thread_states[0]);
     }
 
     println!("{}", system_state);

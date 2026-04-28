@@ -16,6 +16,35 @@
 
 #define TEST 0
 
+#define MAX_THREADS 4096
+
+volatile unsigned int init_done = 0;
+volatile unsigned int thread_done[MAX_THREADS];
+
+static inline unsigned int tid() {
+  unsigned int x;
+  __asm__ __volatile__ ("tid %0" : "=r"(x));
+  return x;
+}
+
+static inline unsigned int bid() {
+  unsigned int x;
+  __asm__ __volatile__ ("bid %0" : "=r"(x));
+  return x;
+}
+
+static inline unsigned int bdim() {
+  unsigned int x;
+  __asm__ __volatile__ ("bdim %0" : "=r"(x));
+  return x;
+}
+
+static inline unsigned int gdim() {
+  unsigned int x;
+  __asm__ __volatile__ ("gdim %0" : "=r"(x));
+  return x;
+}
+
 // The matrices used for matrix multiplication
 unsigned int A[MSIZE][MSIZE];
 unsigned int B[MSIZE][MSIZE];
@@ -61,9 +90,15 @@ static void mmm(unsigned int A[MSIZE][MSIZE], unsigned int B[MSIZE][MSIZE],
 			unsigned int C[MSIZE][MSIZE]) {
   int A_rows=MSIZE, A_cols=MSIZE, B_cols=MSIZE;
   int output_row, output_col, input_dim;
+  unsigned int global_tid = bid() * bdim() + tid();
+  unsigned int total_threads = bdim() * gdim();
   
   for (output_row = 0; output_row < A_rows; output_row++) {
     for (output_col = 0; output_col < B_cols; output_col++) {
+      if (((output_row * B_cols + output_col) % total_threads) != global_tid) {
+        continue;
+      }
+
       for (input_dim = 0; input_dim < A_cols; input_dim++) {
 	C[output_row][output_col] += 
 	  A[output_row][input_dim] * B[input_dim][output_col];
@@ -89,13 +124,35 @@ unsigned int  matrix_add_reduce(int rows, int cols, unsigned int M[rows][cols]) 
 // Main method for the program
 int main()
 {
+  unsigned int i;
+  unsigned int global_tid = bid() * bdim() + tid();
+  unsigned int total_threads = bdim() * gdim();
 
-  init();
+  if (global_tid == 0) {
+    for (i = 0; i < total_threads; i++) {
+      thread_done[i] = 0;
+    }
+
+    init();
+
+    init_done = 1;
+  } else {
+    while (!init_done) {}
+  }
 
   mmm(A, B, C);
+
+  thread_done[global_tid] = 1;
   
-  /* Sum the output matrix and return the binary representation of the
-   * floating-point sum (it is not converted to an integer). */
-  unsigned int sum = matrix_add_reduce(MSIZE, MSIZE, C);
-  return *(int *)&sum;
+  // having strict memory ordering is amazing...
+  if (global_tid == 0) {
+    for (i = 0; i < total_threads; i++) {
+      while (!thread_done[i]) {}
+    }
+
+    unsigned int sum = matrix_add_reduce(MSIZE, MSIZE, C);
+    return sum;
+  }
+
+  return 0;
 }

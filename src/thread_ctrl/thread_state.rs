@@ -16,7 +16,6 @@ const INITIAL_GP: u32 = 0x10000000;
 
 impl ThreadState {
     pub fn new(starting_pc: u32, thread_id: u32, warp_id:u32, block_id: u32) -> Self {
-        // println!("Creating new thread with idx: {}", thread_id);
         let mut new_state= ThreadState { 
             pc:              starting_pc, 
             thread_id:       thread_id,

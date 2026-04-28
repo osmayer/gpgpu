@@ -64,7 +64,7 @@ GPGPU_CUSTOM_INSTRS = $(447_RUNTIME_DIR)/custom_instrs.S
 # processor, we can use libgcc's software implementation of these instructions.
 RISCV_CC = riscv32-unknown-elf-gcc
 RISCV_CFLAGS = -static -nostdlib -nostartfiles -march=rv32i -mabi=ilp32 -Wall \
-		-Wextra -std=c11 -pedantic -g -Werror=implicit-function-declaration
+		-Wextra -std=c11 -pedantic -g -Werror=implicit-function-declaration -Wa,-I,./runtime
 # Note: To toggle on the M extension, change -march=rv32i to -march=rv32im
 RISCV_AS_LDFLAGS = -Wl,-e$(RISCV_ENTRY_POINT)
 RISCV_LDFLAGS = -Wl,-T$(RISCV_LINKER_SCRIPT) -lgcc
@@ -78,6 +78,8 @@ else ifeq ($(dir $(TEST)),private/)
     RISCV_CFLAGS += -O -fno-inline
 else ifeq ($(dir $(TEST)),privateO3/)
     RISCV_CFLAGS += -O3 -fno-inline
+else 
+	RISCV_CFLAGS += -O3 -fno-inline
 endif
 
 # The objcopy utility for ELF files, along with its flags

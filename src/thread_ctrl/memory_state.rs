@@ -122,7 +122,6 @@ impl MemoryState {
             }
         }
 
-        // println!("{:?}", new_state.memory_state);
         new_state
     }
 
@@ -216,7 +215,7 @@ impl MemoryState {
                     }
                 },
                 _ => {
-                    panic!("Illegal load address!");
+                    panic!("Illegal load address! {}", req_addr);
                 }
             }
         }

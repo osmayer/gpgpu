@@ -30,7 +30,7 @@ impl WarpState {
 
     pub fn check_is_runnable (&self) -> bool {
         for thread in &self.threads {
-            if thread.get_waiting_for_mem() | thread.is_halted() {
+            if thread.get_waiting_for_mem() {
                 return false;
             }
         }
@@ -47,13 +47,13 @@ impl WarpState {
         // }
         let mut first_pc = 0; 
         for i in 0..self.num_threads {
-            if !self.run_status[i as usize] {
+            if !self.run_status[i as usize] && !self.threads[i as usize].is_halted() {
                 first_pc = self.threads[i as usize].get_pc();
             }
         }
 
         for i in 0..self.num_threads {
-            if self.threads[i as usize].get_pc() == first_pc {
+            if self.threads[i as usize].get_pc() == first_pc && !self.threads[i as usize].is_halted() {
                 execute_instr(&mut self.threads[i as usize], mem_state);
                 self.run_status[i as usize] = true; 
             }
@@ -61,7 +61,7 @@ impl WarpState {
 
         let mut is_done = true;
         for i in 0..self.num_threads {
-            if !self.run_status[i as usize] {
+            if !self.run_status[i as usize] && !self.threads[i as usize].is_halted() {
                 is_done = false; 
             }
         }

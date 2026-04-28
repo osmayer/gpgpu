@@ -417,7 +417,7 @@ pub fn execute_instr (curr_thread: &mut ThreadState, mem_state: &mut thread_ctrl
     let target_instr; 
     match raw_instr {
         Some(i) => target_instr = i,
-        None => panic!("Tried to execute an illegal instruction")
+        None => panic!("Tried to execute an illegal instruction using PC {}", curr_thread.get_pc())
     }
     match target_instr {
         Instr::Standard(op) => {
