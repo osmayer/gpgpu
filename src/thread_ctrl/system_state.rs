@@ -24,7 +24,7 @@ impl SystemState {
             threads_per_warp: threads_per_warp,
             num_blocks: num_blocks,
             cycles_elapsed: 0,
-            scheduler: SchedulerState::new(scheduler),
+            scheduler: SchedulerState::new(scheduler,num_blocks, warps_per_block),
             functional_units: functional_units
         };
 

@@ -48,6 +48,26 @@ pub fn select_warp (state: & mut SystemState) -> Option<Vec<(u32, u32)>> {
                 }
             }
         }
+        SchedulerData::Lru { history } => {
+            let mut history_index = 0;
+            let mut h = history.clone();
+            for _tries in 0..(state.num_blocks*state.warps_per_block) {
+                let (b, w) = h[history_index];
+                if state.is_warp_runnable(b, w) {
+                    num_selected += 1;
+                    return_set.push((b, w));
+                    h.remove(history_index as usize);
+                    h.push((b,w));
+                    if num_selected == functional_units {
+                        break;
+                    }
+                } else {
+                    history_index += 1;
+                }
+            }
+            state.set_scheduler_data(SchedulerData::Lru{history: h});
+            println!("{:?}", history);
+        }
     }
     println!("{:?}, {}", return_set, num_selected);
     if num_selected != 0 {
