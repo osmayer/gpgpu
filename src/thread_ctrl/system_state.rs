@@ -16,7 +16,6 @@ pub struct SystemState {
 
 impl SystemState {
     pub fn new(program_image: &Vec<Segment>, num_blocks: u32,  threads_per_warp: u32, warps_per_block: u32, mem_delay: u32, starting_pc: u32, scheduler: u32, functional_units: u32) -> Self {
-        println!("Creating a new system with {} blocks, {} warps per block and {} threads_per_warp", num_blocks, warps_per_block, threads_per_warp);
         let mut new_state = SystemState {
             block_states: vec![],
             memory_state:  MemoryState::new(program_image, num_blocks, warps_per_block, threads_per_warp, mem_delay),
@@ -32,7 +31,7 @@ impl SystemState {
             new_state.block_states.push(BlockState::new(i, warps_per_block, threads_per_warp, starting_pc));
         }
 
-        println!("{:?}", new_state.memory_state);
+        // println!("{:?}", new_state.memory_state);
         new_state
     }
 
@@ -96,7 +95,6 @@ impl SystemState {
 impl fmt::Display for SystemState {
     
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        println!("Printing out the system state!");
         for block in 0..self.get_num_blocks() {
             writeln!(f, "BID: {}", block)?;
             writeln!(f, "{}", self.block_states[block as usize])?;

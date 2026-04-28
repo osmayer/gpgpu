@@ -16,7 +16,6 @@ impl WarpState {
         let mut thread_states = vec![];
         
         for i in 0..threads_per_warp {
-            println!("Created Block {} Warp {} Thread {}", block_idx, warp_idx, i);
             thread_states.push(ThreadState::new(starting_pc, i, warp_idx, block_idx));
         }
         let run_status = vec![ false; thread_states.len() ];

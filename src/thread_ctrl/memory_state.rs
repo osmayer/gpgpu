@@ -122,7 +122,7 @@ impl MemoryState {
             }
         }
 
-        println!("{:?}", new_state.memory_state);
+        // println!("{:?}", new_state.memory_state);
         new_state
     }
 

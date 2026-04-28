@@ -66,10 +66,12 @@ fn main() -> io::Result<()> {
                     let block = set[i as usize].0;
                     let warp = set[i as usize].1;
                     system_state.run_warp(block, warp); 
-                    println!("{}, {}", block, warp);
+                    //println!("{}, {}", block, warp);
                 }
             }
-            None => {println!("No warps this cycle")}
+            None => {
+                // println!("No warps this cycle")
+            }
         }
 
         // update memory request state

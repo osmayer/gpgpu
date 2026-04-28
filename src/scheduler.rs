@@ -1,5 +1,3 @@
-use core::panic;
-use std::num::NonZeroU128;
 use crate::thread_ctrl::{system_state::SystemState, scheduler_state:: {SchedulerData}};
 
 
@@ -66,10 +64,10 @@ pub fn select_warp (state: & mut SystemState) -> Option<Vec<(u32, u32)>> {
                 }
             }
             state.set_scheduler_data(SchedulerData::Lru{history: h});
-            println!("{:?}", history);
+            // println!("{:?}", history);
         }
     }
-    println!("{:?}, {}", return_set, num_selected);
+    // println!("{:?}, {}", return_set, num_selected);
     if num_selected != 0 {
         Some(return_set)
     } else {
