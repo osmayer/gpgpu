@@ -9,12 +9,13 @@ pub struct SystemState {
     pub warps_per_block: u32,
     pub num_blocks: u32,
     pub cycles_elapsed: u32,
-    pub scheduler: SchedulerState
+    pub scheduler: SchedulerState,
+    pub functional_units: u32
 }
 
 
 impl SystemState {
-    pub fn new(program_image: &Vec<Segment>, num_blocks: u32,  threads_per_warp: u32, warps_per_block: u32, mem_delay: u32, starting_pc: u32, scheduler: u32) -> Self {
+    pub fn new(program_image: &Vec<Segment>, num_blocks: u32,  threads_per_warp: u32, warps_per_block: u32, mem_delay: u32, starting_pc: u32, scheduler: u32, functional_units: u32) -> Self {
         println!("Creating a new system with {} blocks, {} warps per block and {} threads_per_warp", num_blocks, warps_per_block, threads_per_warp);
         let mut new_state = SystemState {
             block_states: vec![],
@@ -23,7 +24,8 @@ impl SystemState {
             threads_per_warp: threads_per_warp,
             num_blocks: num_blocks,
             cycles_elapsed: 0,
-            scheduler: SchedulerState::new(scheduler)
+            scheduler: SchedulerState::new(scheduler),
+            functional_units: functional_units
         };
 
         for i in 0..num_blocks {

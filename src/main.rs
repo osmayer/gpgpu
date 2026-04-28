@@ -47,7 +47,8 @@ fn main() -> io::Result<()> {
                             user_args.warps_per_block, 
                             user_args.memory_delay, 
                             4194304,
-                            user_args.scheduler
+                            user_args.scheduler,
+                            user_args.functional_units
                         );
 
     let num_blocks = user_args.num_blocks;
@@ -60,8 +61,15 @@ fn main() -> io::Result<()> {
 
         // for loop to run warps that have been decided
         match data {
-            Some ((b, w)) => {system_state.run_warp(b, w); println!("{}, {}", b, w);}
-            None => {println!("noone gets anything")}
+            Some (set) => {
+                for i in 0..set.len() {
+                    let block = set[i as usize].0;
+                    let warp = set[i as usize].1;
+                    system_state.run_warp(block, warp); 
+                    println!("{}, {}", block, warp);
+                }
+            }
+            None => {println!("No warps this cycle")}
         }
 
         // update memory request state

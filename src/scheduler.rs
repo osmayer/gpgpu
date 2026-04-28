@@ -1,10 +1,14 @@
 use core::panic;
+use std::num::NonZeroU128;
 use crate::thread_ctrl::{system_state::SystemState, scheduler_state:: {SchedulerData}};
 
 
 
-pub fn select_warp (state: & mut SystemState) -> Option<(u32, u32)> {
+pub fn select_warp (state: & mut SystemState) -> Option<Vec<(u32, u32)>> {
     let data = state.get_scheduler_data();
+    let functional_units = state.functional_units;
+    let mut return_set = vec![];
+    let mut num_selected = 0;
     match data {
         SchedulerData::RoundRobin {curr_block, curr_warp, ..} => {
             let mut warp_idx = curr_warp;
@@ -21,19 +25,34 @@ pub fn select_warp (state: & mut SystemState) -> Option<(u32, u32)> {
                 if state.is_warp_runnable(block_idx, warp_idx) {
                     let new_data = SchedulerData::RoundRobin{curr_warp: warp_idx, curr_block: block_idx};
                     state.set_scheduler_data(new_data);
-                    return Some((curr_block, curr_warp));
+                    num_selected += 1;
+                    return_set.push((block_idx, warp_idx));
+                    if num_selected == functional_units {
+                        break;
+                    }
                 }
             }
-            None
         }
         SchedulerData::Chaos => {
             for block in 0..state.num_blocks {
                 let (warps, size) = state.get_runnable_warps(block);
-                if size != 0 {
-                    return Some((block, warps[0]));
+                for i in 0..size {
+                    return_set.push((block, warps[i as usize]));
+                    num_selected += 1;
+                    if num_selected == functional_units {
+                        break;
+                    }
+                }
+                if num_selected == functional_units {
+                    break;
                 }
             }
-            None
         }
+    }
+    println!("{:?}, {}", return_set, num_selected);
+    if num_selected != 0 {
+        Some(return_set)
+    } else {
+        None
     }
 }
