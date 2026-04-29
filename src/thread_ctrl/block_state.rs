@@ -85,6 +85,18 @@ impl BlockState {
         }
         true
     }
+
+    pub fn get_block_thread_util(&self) -> (u32, u32) {
+        let mut total_issued = 0; 
+        let mut total_slots = 0; 
+        for warp in &self.warps {
+            let curr_warp_results = warp.get_util();
+            total_issued += curr_warp_results.0; 
+            total_slots  += curr_warp_results.1; 
+        }
+        (total_issued, total_slots)
+
+    }
 }
 
 impl fmt::Display for BlockState {

@@ -7,7 +7,9 @@ pub struct WarpState {
     warp_idx:     u32,
     num_threads:  u32, 
     threads:      Vec<ThreadState>,
-    run_status:   Vec<bool> 
+    run_status:   Vec<bool> ,
+    total_issued: u32,
+    total_slots:  u32
 }
 
 
@@ -21,10 +23,12 @@ impl WarpState {
         let run_status = vec![ false; thread_states.len() ];
         
         WarpState { 
-            warp_idx:    warp_idx, 
-            num_threads: threads_per_warp, 
-            threads:     thread_states,
-            run_status:  run_status
+            warp_idx:     warp_idx, 
+            num_threads:  threads_per_warp, 
+            threads:      thread_states,
+            run_status:   run_status,
+            total_issued: 0,
+            total_slots:  0
         }
     }
 
@@ -56,6 +60,7 @@ impl WarpState {
             if self.threads[i as usize].get_pc() == first_pc && !self.threads[i as usize].is_halted() {
                 execute_instr(&mut self.threads[i as usize], mem_state);
                 self.run_status[i as usize] = true; 
+                self.total_issued += 1;
             }
         }
 
@@ -71,6 +76,8 @@ impl WarpState {
                 self.run_status[i as usize] = false;
             }
         }
+
+        self.total_slots += self.num_threads; // total slots that could have been used
     }
 
     pub fn set_waiting_for_mem (& mut self, thread_idx:u32, new_val: bool) {
@@ -84,6 +91,10 @@ impl WarpState {
             }
         }
         true
+    }
+
+    pub fn get_util(&self) -> (u32, u32) {
+        (self.total_issued, self.total_slots)
     }
 }
 

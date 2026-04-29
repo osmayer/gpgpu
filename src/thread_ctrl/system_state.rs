@@ -55,11 +55,13 @@ impl SystemState {
         self.block_states[block_idx as usize].set_waiting_for_mem(thread_idx, warp_idx, new_val);
     }
 
-    pub fn incr_cycles (& mut self, thread_idx:u32, warp_idx:u32, block_idx:u32) {
+    pub fn incr_cycles (& mut self, thread_idx:u32, warp_idx:u32, block_idx:u32) -> bool {
         self.memory_state.incr_cycles(thread_idx, warp_idx, block_idx);
         if self.memory_state.check_if_ready(thread_idx, warp_idx, block_idx) {
             self.set_waiting_for_mem(thread_idx, warp_idx, block_idx, false);
+            return true; 
         }
+        false
     }
 
     pub fn run_warp (& mut self, block_idx: u32, warp_idx: u32) {
@@ -88,6 +90,21 @@ impl SystemState {
 
     pub fn get_scheduler_data (&self) -> SchedulerData {
         self.scheduler.get_scheduler_data()
+    }
+
+    pub fn get_overall_thread_util (&self) -> (u32, u32) {
+        let mut total_issued = 0;
+        let mut total_slots = 0; 
+        for block in &self.block_states {
+            let curr_results = block.get_block_thread_util();
+            total_issued += curr_results.0; 
+            total_slots += curr_results.1; 
+        }
+        (total_issued, total_slots)
+    }
+
+    pub fn get_total_cycle_count(&self) -> u32 {
+        self.cycles_elapsed
     }
 }
 
