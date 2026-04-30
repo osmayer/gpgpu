@@ -97,15 +97,5 @@ int main() {
 
     gaussian_blur(image, blur_image);
 
-    thread_done[global_tid] = 1;
-
-    if (global_tid == 0) {
-        for (i = 0; i < total_threads; i++) {
-            while (!thread_done[i]) {}
-        }
-
-        return checksum(blur_image);
-    }
-
     return 0;
 }
