@@ -1,4 +1,4 @@
-SIZE = 512
+SIZE = 128
 
 def pixel_expr(r, g, b):
     return f"{{{r}, {g}, {b}}}"

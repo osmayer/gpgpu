@@ -38,7 +38,7 @@ impl WarpState {
                 return false;
             }
         }
-        true
+        !self.is_warp_halted()
     }
 
     pub fn run_threads (&mut self, mem_state: &mut memory_state::MemoryState) {

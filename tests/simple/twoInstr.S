@@ -13,7 +13,7 @@ main:
     nop
     nop
     nop
-
+l
     addi    a0, zero, 0xa       # a0 (x10) = 0xa
     ecall                       # Terminate the simulation by passing 0xa to
                                 # ecall in register a0 (x10).

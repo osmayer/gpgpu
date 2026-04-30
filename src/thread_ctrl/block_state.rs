@@ -28,11 +28,11 @@ impl BlockState {
 
     pub fn check_is_runnable(&self) -> bool {
         for warp in &self.warps {
-            if !warp.check_is_runnable() {
-                return false; 
+            if warp.check_is_runnable() {
+                return true; 
             }
         }
-        true
+        false
     }
 
     pub fn is_warp_runnable (&self, warp_idx:u32) -> bool {

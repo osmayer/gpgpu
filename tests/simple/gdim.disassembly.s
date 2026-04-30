@@ -12,6 +12,6 @@ Disassembly of section .text:
   400010:	00848633          	add	x12,x9,x8
   400014:	009486b3          	add	x13,x9,x9
   400018:	00a00513          	addi	x10,x0,10
-  40001c:	0000368f          	.insn	4, 0x368f
+  40001c:	0000350f          	.insn	4, 0x350f
   400020:	00a50033          	add	x0,x10,x10
   400024:	00000073          	ecall
