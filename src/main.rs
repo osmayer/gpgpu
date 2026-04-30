@@ -115,10 +115,13 @@ fn main() -> io::Result<()> {
 
     println!("===== Begin System Stats =====");
     println!("Total Cycles Elapsed: {}", system_state.get_total_cycle_count());
-    println!("Cycles without any any instructions dispatched {}", global_stalls);
+    println!("Cycles without any instructions dispatched: {}", global_stalls);
+    println!("Warp occupancy rate slots used: {}", warps_dispatched);
+    println!("Warp occupancy rate slots available: {}",system_state.get_total_cycle_count() * user_args.functional_units);
     println!("Warp occupancy rate: {} slots used / {} slots available", warps_dispatched, system_state.get_total_cycle_count() * user_args.functional_units);
     let issue_util: (u32, u32) = system_state.get_overall_thread_util();
-    println!("Thread Occupancy Rate: {} slots used / {} slots available", issue_util.0, issue_util.1);
+    println!("Thread Occupancy Rate slots used: {} ", issue_util.0);
+    println!("Thread Occupancy Rate slots available: {} ", issue_util.1);
     println!("Total Memory Requests: {}", total_mem_wakes);
     println!("Total Cycles with Wake: {}", total_cycles_with_wake);
     println!("===== End System Stats =====");
